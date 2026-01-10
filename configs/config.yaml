@@ -1,0 +1,19 @@
+server:
+  port: 9090
+  host: "0.0.0.0"
+  mode: debug
+
+database:
+  type: mysql
+  host: "localhost"
+  port: 3306
+  user: "root"
+  password: "gonetdisk"
+  name: "go_netdisk"
+  charset: "utf8mb4"
+  parseTime: true
+  loc: "Local"
+  max_idle_conns: 10
+  max_open_conns: 100
+  log_mode: "info"
+  
