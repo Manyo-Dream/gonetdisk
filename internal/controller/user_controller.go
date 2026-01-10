@@ -37,3 +37,24 @@ func (c *UserController) Register(ctx *gin.Context) {
 		"message": "用户注册成功",
 	})
 }
+
+func (c *UserController) Login(ctx *gin.Context) {
+	var req dto.LoginRequest
+
+	if err := ctx.ShouldBindJSON(&req); err != nil {
+		ctx.JSON(http.StatusBadRequest, gin.H{
+			"error": "请求参数错误:" + err.Error(),
+		})
+		return
+	}
+
+	resp, err := c.UserService.Login(req.Email, req.Password)
+	if err != nil {
+		ctx.JSON(http.StatusConflict, gin.H{
+			"error": "用户登录失败:" + err.Error(),
+		})
+		return
+	}
+
+	ctx.JSON(http.StatusOK, resp)
+}

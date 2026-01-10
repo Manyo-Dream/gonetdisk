@@ -12,7 +12,7 @@ CREATE TABLE `user` (
     `avatar_url` VARCHAR(255) COMMENT '头像地址',
     `used_space` BIGINT UNSIGNED DEFAULT 0 COMMENT '已用空间(Byte)',
     `total_space` BIGINT UNSIGNED DEFAULT 1073741824 COMMENT '总空间(默认1GB)',
-    `status` TINYINT DEFAULT 1 COMMENT '状态: 1正常, 0禁用',
+    `status` TINYINT DEFAULT 0 COMMENT '状态: 0正常, 1禁用',
     `created_at` DATETIME DEFAULT CURRENT_TIMESTAMP,
     `updated_at` DATETIME DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
     `deleted_at` DATETIME DEFAULT NULL,

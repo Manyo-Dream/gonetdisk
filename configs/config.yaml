@@ -9,11 +9,14 @@ database:
   port: 3306
   user: "root"
   password: "gonetdisk"
-  name: "go_netdisk"
+  name: "gonetdisk"
   charset: "utf8mb4"
   parseTime: true
   loc: "Local"
   max_idle_conns: 10
   max_open_conns: 100
   log_mode: "info"
-  
+
+jwt:
+  secret: "123321"
+  expire_hours: 24

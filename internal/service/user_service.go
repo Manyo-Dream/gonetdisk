@@ -4,17 +4,20 @@ import (
 	"errors"
 	"fmt"
 
+	"github.com/manyodream/gonetdisk/internal/dto"
 	"github.com/manyodream/gonetdisk/internal/model"
 	"github.com/manyodream/gonetdisk/internal/repository"
+	"github.com/manyodream/gonetdisk/internal/util"
 	"golang.org/x/crypto/bcrypt"
 )
 
 type UserService struct {
-	userRepo *repository.UserRepository
+	userRepo   *repository.UserRepository
+	jwtManager *util.JWTManager
 }
 
-func NewUserService(userRepo *repository.UserRepository) *UserService {
-	return &UserService{userRepo: userRepo}
+func NewUserService(userRepo *repository.UserRepository, jwtManger *util.JWTManager) *UserService {
+	return &UserService{userRepo: userRepo, jwtManager: jwtManger}
 }
 
 func (s *UserService) Register(email, username, password string) error {
@@ -34,7 +37,7 @@ func (s *UserService) Register(email, username, password string) error {
 	}
 
 	user := &model.User{
-		UserName:      username,
+		Username:      username,
 		Email:         email,
 		Password_Hash: string(hashPassword),
 	}
@@ -42,7 +45,7 @@ func (s *UserService) Register(email, username, password string) error {
 	return s.userRepo.Create(user)
 }
 
-func (s *UserService) Login(email, password string) (*model.User, error) {
+func (s *UserService) Login(email, password string) (*dto.LoginResponse, error) {
 	user, err := s.userRepo.GetByEmail(email)
 	if err != nil {
 		return nil, errors.New("用户不存在")
@@ -58,5 +61,14 @@ func (s *UserService) Login(email, password string) (*model.User, error) {
 	}
 
 	// JWT 生成 token
-	
+	token, err := s.jwtManager.GenerateToken(user.Username, user.Email)
+	if err != nil {
+		return nil, errors.New("JWT 生成失败")
+	}
+
+	return &dto.LoginResponse{
+		Email:    user.Email,
+		Token:    token,
+		Username: user.Username,
+	}, nil
 }
