@@ -26,16 +26,15 @@ func (c *UserController) Register(ctx *gin.Context) {
 		return
 	}
 
-	if err := c.UserService.Register(req.Email, req.Username, req.Password); err != nil {
+	resp, err := c.UserService.Register(req.Email, req.Username, req.Password)
+	if err != nil {
 		ctx.JSON(http.StatusConflict, gin.H{
 			"error": "用户注册失败:" + err.Error(),
 		})
 		return
 	}
 
-	ctx.JSON(http.StatusOK, gin.H{
-		"message": "用户注册成功",
-	})
+	ctx.JSON(http.StatusOK, resp)
 }
 
 func (c *UserController) Login(ctx *gin.Context) {
@@ -54,6 +53,45 @@ func (c *UserController) Login(ctx *gin.Context) {
 			"error": "用户登录失败:" + err.Error(),
 		})
 		return
+	}
+
+	ctx.JSON(http.StatusOK, resp)
+}
+
+func (c *UserController) GetUserInfo(ctx *gin.Context) {
+	var req dto.UserInfoGetRequest
+
+	if err := ctx.ShouldBindJSON(&req); err != nil {
+		ctx.JSON(http.StatusBadRequest, gin.H{
+			"error": "请求参数错误:" + err.Error(),
+		})
+		return
+	}
+
+	resp, err := c.UserService.GetUserInfo(req.Email)
+	if err != nil {
+		ctx.JSON(http.StatusConflict, gin.H{
+			"error": "用户信息获取失败:" + err.Error(),
+		})
+	}
+
+	ctx.JSON(http.StatusOK, resp)
+}
+
+func (c *UserController) UpdateUserInfo(ctx *gin.Context) {
+	var req dto.UserInfoUpdateRequest
+
+	if err := ctx.ShouldBindJSON(&req); err != nil {
+		ctx.JSON(http.StatusBadRequest, gin.H{
+			"error": "请求参数错误:" + err.Error(),
+		})
+	}
+
+	resp, err := c.UserService.UpdateUserInfo(req.Email, req.Username, req.AvatarURL)
+	if err != nil {
+		ctx.JSON(http.StatusConflict, gin.H{
+			"error": "用户信息更新失败:" + err.Error(),
+		})
 	}
 
 	ctx.JSON(http.StatusOK, resp)

@@ -11,7 +11,8 @@ import (
 )
 
 func main() {
-	cfg, err := configs.LoadConfig("E:\\Go_Project\\GoNetDisk\\configs\\config.yaml")
+	// cfg, err := configs.LoadConfig("E:\\Go_Project\\GoNetDisk\\configs\\config.yaml")
+	cfg, err := configs.LoadConfig("./configs/config.yaml")
 	if err != nil {
 		log.Fatal("加载配置文件失败:", err)
 	}

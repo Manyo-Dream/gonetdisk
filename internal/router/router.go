@@ -12,7 +12,7 @@ import (
 func SetupRouter(db *gorm.DB, jwtManager *util.JWTManager) *gin.Engine {
 	r := gin.Default()
 
-	userRepo := repository.NewUserRepository(db)
+	userRepo := repository.NewUserRepo(db)
 	userService := service.NewUserService(userRepo, jwtManager)
 	userController := controller.NewUserController(userService)
 
@@ -22,6 +22,8 @@ func SetupRouter(db *gorm.DB, jwtManager *util.JWTManager) *gin.Engine {
 		{
 			user.POST("/register", userController.Register)
 			user.POST("/login", userController.Login)
+			user.GET("/info", userController.GetUserInfo)
+			user.PUT("/info", userController.UpdateUserInfo)
 		}
 	}
 	return r

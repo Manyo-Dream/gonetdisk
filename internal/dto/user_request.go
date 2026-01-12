@@ -10,3 +10,13 @@ type LoginRequest struct {
 	Email    string `json:"email" binding:"required,email"`
 	Password string `json:"password" binding:"required,min=6"`
 }
+
+type UserInfoGetRequest struct { 
+    Email     string `json:"email" binding:"email"`
+}
+
+type UserInfoUpdateRequest struct {
+    Username  *string `json:"username" binding:"omitempty,min=3,max=32"` 
+    Email     *string `json:"email" binding:"omitempty,email"`
+    AvatarURL *string `json:"avatar_url" binding:"omitempty"` 
+}
