@@ -13,7 +13,7 @@ import (
 func InitDB(dsn string) (*gorm.DB, error) {
 	db, err := gorm.Open(mysql.Open(dsn), &gorm.Config{
 		NamingStrategy: schema.NamingStrategy{
-			SingularTable: true, 
+			SingularTable: true,
 		},
 		Logger: logger.Default.LogMode(logger.Info),
 	})
@@ -22,6 +22,8 @@ func InitDB(dsn string) (*gorm.DB, error) {
 	}
 
 	db.AutoMigrate(&model.User{})
+	db.AutoMigrate(&model.PhyscialFile{})
+	db.AutoMigrate(&model.UserFile{})
 
 	return db, nil
 }

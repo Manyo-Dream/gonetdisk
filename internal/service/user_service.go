@@ -79,46 +79,46 @@ func (s *UserService) Login(email, password string) (*dto.LoginResponse, error) 
 	}, nil
 }
 
-func (s *UserService) GetUserInfo(email string) (*dto.UserInfoGetResponse, error) { 
+func (s *UserService) GetUserInfo(email string) (*dto.UserInfoGetResponse, error) {
 	user, err := s.userRepo.GetByEmail(email)
 	if err != nil {
 		return nil, errors.New("用户不存在")
 	}
 
 	return &dto.UserInfoGetResponse{
-		Email:    user.Email,
-		Username: user.Username,
+		Email:     user.Email,
+		Username:  user.Username,
 		AvatarUrl: user.Avatar_Url,
-	},nil
+	}, nil
 }
 
-func (s *UserService) UpdateUserInfo(email, username, avatar_url *string) (*dto.UserInfoUpdateResponse, error) { 
-	updates := make(map[string]interface{})
+func (s *UserService) UpdateUserInfo(email, username, avatarUrl *string) (*dto.UserInfoUpdateResponse, error) {
+	updates := make(map[string]any)
 
-	if email != nil { 
+	if email != nil {
 		updates["email"] = *email
 	}
 
-	if username != nil { 
+	if username != nil {
 		updates["username"] = *username
 	}
 
-	if avatar_url != nil { 
-		updates["avatar_url"] = *avatar_url
+	if avatarUrl != nil {
+		updates["avatar_url"] = *avatarUrl
 	}
 
-	if len(updates) == 0 { 
+	if len(updates) == 0 {
 		return nil, errors.New("没有更新数据")
 	}
 
 	user, err := s.userRepo.UserInfoUpdate(email, updates)
-	if err != nil { 
+	if err != nil {
 		return nil, errors.New("更新用户信息失败")
 	}
 
 	return &dto.UserInfoUpdateResponse{
-		Email:    user.Email,
-		Username: user.Username,
+		Email:     user.Email,
+		Username:  user.Username,
 		AvatarUrl: user.Avatar_Url,
 	}, nil
 }

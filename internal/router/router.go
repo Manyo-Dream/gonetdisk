@@ -15,6 +15,9 @@ func SetupRouter(db *gorm.DB, jwtManager *util.JWTManager) *gin.Engine {
 	userRepo := repository.NewUserRepo(db)
 	userService := service.NewUserService(userRepo, jwtManager)
 	userController := controller.NewUserController(userService)
+	fileRepo := repository.NewFileRepo(db)
+	fileService := service.NewFileService(fileRepo, jwtManager)
+	fileController := controller.NewFileController(fileService)
 
 	v1 := r.Group("/api/v1")
 	{
@@ -24,6 +27,10 @@ func SetupRouter(db *gorm.DB, jwtManager *util.JWTManager) *gin.Engine {
 			user.POST("/login", userController.Login)
 			user.GET("/info", userController.GetUserInfo)
 			user.PUT("/info", userController.UpdateUserInfo)
+		}
+		fileRepo := v1.Group("/file")
+		{
+			fileRepo.POST("/upload", fileController.UploadFile)
 		}
 	}
 	return r
