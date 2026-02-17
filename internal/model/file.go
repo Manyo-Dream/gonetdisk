@@ -6,7 +6,7 @@ import (
 	"gorm.io/gorm"
 )
 
-type PhyscialFile struct {
+type PhysicalFile struct {
 	ID          uint64         `gorm:"primaryKey" json:"id"`
 	FileHash    string         `gorm:"unique" json:"file_hash"`
 	FileName    string         `gorm:"not null" json:"file_name"`
@@ -25,7 +25,7 @@ type UserFile struct {
 	UserID       uint64         `json:"user_id"`
 	User         *User          `gorm:"foreignKey:UserID;references:ID" json:"user,omitempty"`
 	PhysicalID   uint64         `json:"physical_id"`
-	PhysicalFile *PhyscialFile  `gorm:"foreignKey:PhysicalID;references:ID" json:"physical_file,omitempty"`
+	PhysicalFile *PhysicalFile  `gorm:"foreignKey:PhysicalID;references:ID" json:"physical_file,omitempty"`
 	ParentID     uint64         `json:"parent_id"`
 	FileName     string         `json:"file_name"`
 	FileExt      string         `json:"file_ext"`

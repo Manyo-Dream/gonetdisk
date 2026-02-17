@@ -16,7 +16,7 @@ func SetupRouter(db *gorm.DB, jwtManager *util.JWTManager) *gin.Engine {
 	userService := service.NewUserService(userRepo, jwtManager)
 	userController := controller.NewUserController(userService)
 	fileRepo := repository.NewFileRepo(db)
-	fileService := service.NewFileService(fileRepo, jwtManager)
+	fileService := service.NewFileService(userRepo, fileRepo, jwtManager)
 	fileController := controller.NewFileController(fileService)
 
 	v1 := r.Group("/api/v1")

@@ -22,7 +22,7 @@ func InitDB(dsn string) (*gorm.DB, error) {
 	}
 
 	db.AutoMigrate(&model.User{})
-	db.AutoMigrate(&model.PhyscialFile{})
+	db.AutoMigrate(&model.PhysicalFile{})
 	db.AutoMigrate(&model.UserFile{})
 
 	return db, nil
