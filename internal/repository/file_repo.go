@@ -1,6 +1,8 @@
 package repository
 
 import (
+	"fmt"
+
 	"github.com/manyodream/gonetdisk/internal/model"
 	"gorm.io/gorm"
 )
@@ -24,7 +26,7 @@ func (r *FileRepo) CreateUserFile(DB *gorm.DB, userfile *model.UserFile) error {
 func (r *FileRepo) GetPhyFileByFileName(filename string) (*model.PhysicalFile, error) {
 	var phyfile model.PhysicalFile
 
-	err := r.DB.Where("file_name = ?", filename).First(&phyfile).Error
+	err := r.DB.Model(&model.PhysicalFile{}).Where("file_name = ?", filename).First(&phyfile).Error
 	if err != nil {
 		return nil, err
 	}
@@ -32,10 +34,33 @@ func (r *FileRepo) GetPhyFileByFileName(filename string) (*model.PhysicalFile, e
 	return &phyfile, nil
 }
 
-func (r *FileRepo) HashDeduplication(db *gorm.DB, fileHash string) (*model.PhysicalFile, error) {
+func (r *FileRepo) GetPhyFileByID(id uint64) (*model.PhysicalFile, error) {
+    var phyFile model.PhysicalFile
+    err := r.DB.Where("id = ?", id).First(&phyFile).Error
+    return &phyFile, err
+}
+
+func (r *FileRepo) GetUserFileNumByFileName(userID uint64, filename string) (int64, error) {
+	var count int64
+
+	err := r.DB.Model(&model.UserFile{}).
+		Where("user_id = ? AND file_name = ?", userID, filename).
+		Count(&count).Error
+	if err != nil {
+		return 0, fmt.Errorf("failed to count user files: %w", err)
+	}
+
+	return count, nil
+}
+
+func (r *FileRepo) UpdatePhyFilePath(id uint64, filePath string) error {
+    return r.DB.Model(&model.PhysicalFile{}).Where("id = ?", id).Update("file_path", filePath).Error
+}
+
+func (r *FileRepo) HashDeduplication(DB *gorm.DB, fileHash string) (*model.PhysicalFile, error) {
 	var phyfile model.PhysicalFile
 
-	err := db.Where("file_hash = ?", fileHash).First(&phyfile).Error
+	err := DB.Model(&model.PhysicalFile{}).Where("file_hash = ?", fileHash).First(&phyfile).Error
 	if err != nil {
 		return nil, err
 	}
