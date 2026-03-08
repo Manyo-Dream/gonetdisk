@@ -3,6 +3,7 @@ package router
 import (
 	"github.com/gin-gonic/gin"
 	"github.com/manyodream/gonetdisk/internal/controller"
+	"github.com/manyodream/gonetdisk/internal/middleware"
 	"github.com/manyodream/gonetdisk/internal/repository"
 	"github.com/manyodream/gonetdisk/internal/service"
 	"github.com/manyodream/gonetdisk/internal/util"
@@ -29,6 +30,7 @@ func SetupRouter(db *gorm.DB, jwtManager *util.JWTManager) *gin.Engine {
 			user.PUT("/info", userController.UpdateUserInfo)
 		}
 		fileRepo := v1.Group("/file")
+		fileRepo.Use(middleware.AuthMiddleware(jwtManager))
 		{
 			fileRepo.POST("/upload", fileController.UploadFile)
 		}

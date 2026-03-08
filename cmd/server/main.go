@@ -30,6 +30,10 @@ func main() {
 	)
 	fmt.Println("dsn:", dsn)
 
+	fmt.Println("JWT Secret:", cfg.JWT.Secret)
+	fmt.Println("JWT ExpiresHours:", cfg.JWT.ExpiresHours)
+	fmt.Println("JWT Duration:", cfg.JWT.GetTokenDuration())
+
 	db, err := database.InitDB(dsn)
 	if err != nil {
 		log.Fatal("初始化数据库失败:", err)

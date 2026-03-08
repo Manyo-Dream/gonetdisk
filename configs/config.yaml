@@ -19,4 +19,4 @@ database:
 
 jwt:
   secret: "123321"
-  expire_hours: 24
+  expiresHours: 24

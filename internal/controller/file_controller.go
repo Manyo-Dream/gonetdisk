@@ -5,6 +5,7 @@ import (
 
 	"github.com/gin-gonic/gin"
 	"github.com/manyodream/gonetdisk/internal/dto"
+	"github.com/manyodream/gonetdisk/internal/middleware"
 	"github.com/manyodream/gonetdisk/internal/service"
 )
 
@@ -34,8 +35,15 @@ func (c *FileController) UploadFile(ctx *gin.Context) {
 		return
 	}
 
+	// 控制器从 token 取 email
+	email, ok := middleware.GetEmail(ctx)
+	if !ok {
+		ctx.JSON(http.StatusUnauthorized, gin.H{"error": "未认证用户"})
+		return
+	}
+
 	// 上传物理文件
-	resp, err := c.FileService.UploadPhyFileAndBindFile(req.Email, fileHeader)
+	resp, err := c.FileService.UploadPhyFileAndBindFile(email, req.ParentID, fileHeader)
 	if err != nil {
 		ctx.JSON(http.StatusInternalServerError, gin.H{"error": "上传文件失败"})
 		return

@@ -38,11 +38,19 @@ func AuthMiddleware(jwtManager *util.JWTManager) gin.HandlerFunc {
 	}
 }
 
-func GetUsername(ctx *gin.Context) (string, bool){
+func GetUsername(ctx *gin.Context) (string, bool) {
 	username, exists := ctx.Get("username")
 	if !exists {
 		return "", false
 	}
-
 	return username.(string), true
+}
+
+func GetEmail(ctx *gin.Context) (string, bool) {
+	email, exists := ctx.Get("email")
+	if !exists {
+		return "", false
+	}
+	v, ok := email.(string)
+	return v, ok
 }
