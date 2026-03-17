@@ -35,15 +35,10 @@ func (r *UserRepo) GetByUserName(username string) (*model.User, error) {
 	return &user, nil
 }
 
-func (r *UserRepo) UserInfoUpdate(email *string, updates map[string]any) (*model.User, error) {
+func (r *UserRepo) UserInfoUpdate(userID string, updates map[string]any) (*model.User, error) {
 	var user model.User
 
-	err := r.db.Model(&model.User{}).Where("email = ?", email).Updates(updates).Error
-	if err != nil {
-		return nil, err
-	}
-
-	err = r.db.Where("email = ?", email).First(&user).Error
+	err := r.db.Model(&model.User{}).Where("id = ?", userID).Updates(updates).Find(&user).Error
 	if err != nil {
 		return nil, err
 	}

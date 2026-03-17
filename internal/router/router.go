@@ -16,23 +16,37 @@ func SetupRouter(db *gorm.DB, jwtManager *util.JWTManager) *gin.Engine {
 	userRepo := repository.NewUserRepo(db)
 	userService := service.NewUserService(userRepo, jwtManager)
 	userController := controller.NewUserController(userService)
+
 	fileRepo := repository.NewFileRepo(db)
 	fileService := service.NewFileService(userRepo, fileRepo, jwtManager)
 	fileController := controller.NewFileController(fileService)
 
+	folderService := service.NewFolderService(userRepo, fileRepo, jwtManager)
+	folderController := controller.NewFolderController(folderService)
+
 	v1 := r.Group("/api/v1")
 	{
-		user := v1.Group("/user")
+		userRepo := v1.Group("/user")
 		{
-			user.POST("/register", userController.Register)
-			user.POST("/login", userController.Login)
-			user.GET("/info", userController.GetUserInfo)
-			user.PUT("/info", userController.UpdateUserInfo)
+			userRepo.POST("/register", userController.Register)
+			userRepo.POST("/login", userController.Login)
 		}
+		userRepo.Use(middleware.AuthMiddleware(jwtManager))
+		{
+			userRepo.GET("/info", userController.GetUserInfo)
+			userRepo.PUT("/info", userController.UpdateUserInfo)
+		}
+
 		fileRepo := v1.Group("/file")
 		fileRepo.Use(middleware.AuthMiddleware(jwtManager))
 		{
 			fileRepo.POST("/upload", fileController.UploadFile)
+		}
+
+		folderRepo := v1.Group("/folder")
+		folderRepo.Use(middleware.AuthMiddleware(jwtManager))
+		{
+			folderRepo.POST("/create", folderController.CreateFolder)
 		}
 	}
 	return r

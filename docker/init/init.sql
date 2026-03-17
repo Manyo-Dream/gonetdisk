@@ -22,7 +22,7 @@ CREATE TABLE `user` (
 -- 2. 物理文件表 (核心：去重与秒传的基础)
 CREATE TABLE `physical_file` (
     `id` BIGINT UNSIGNED AUTO_INCREMENT PRIMARY KEY,
-    `file_hash` CHAR(64) NOT NULL UNIQUE COMMENT '文件唯一哈希(如SHA256)',
+    `file_hash` CHAR(64) NOT NULL UNIQUE COMMENT '文件唯一哈希(如md5)',
     `file_name` VARCHAR(255) NOT NULL COMMENT '原始文件名',
     `file_ext` VARCHAR(20) COMMENT '文件扩展名',
     `file_size` BIGINT UNSIGNED NOT NULL COMMENT '文件实际大小',
@@ -43,7 +43,7 @@ CREATE TABLE `user_file` (
     `parent_id` BIGINT UNSIGNED DEFAULT 0 COMMENT '父文件夹ID, 0为根目录',
     `file_name` VARCHAR(255) NOT NULL COMMENT '用户显示的文件名',
     `file_ext` VARCHAR(20) COMMENT '扩展名',
-    `path_stack` TEXT COMMENT '族谱路径, 如 /0/1/5/',
+    `path_stack` TEXT COMMENT '族谱路径, 如 /0/1/5',
     `is_dir` TINYINT(1) DEFAULT 0 COMMENT '是否为文件夹: 1是, 0否',
     `created_at` DATETIME DEFAULT CURRENT_TIMESTAMP,
     `updated_at` DATETIME DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,

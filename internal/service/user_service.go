@@ -67,7 +67,7 @@ func (s *UserService) Login(email, password string) (*dto.LoginResponse, error) 
 	}
 
 	// JWT 生成 token
-	token, err := s.jwtManager.GenerateToken(user.Username, user.Email)
+	token, err := s.jwtManager.GenerateToken(fmt.Sprintf("%d", user.ID), user.Username, user.Email)
 	if err != nil {
 		return nil, errors.New("JWT 生成失败")
 	}
@@ -92,12 +92,8 @@ func (s *UserService) GetUserInfo(email string) (*dto.UserInfoGetResponse, error
 	}, nil
 }
 
-func (s *UserService) UpdateUserInfo(email, username, avatarUrl *string) (*dto.UserInfoUpdateResponse, error) {
+func (s *UserService) UpdateUserInfo(userID string, username, avatarUrl *string) (*dto.UserInfoUpdateResponse, error) {
 	updates := make(map[string]any)
-
-	if email != nil {
-		updates["email"] = *email
-	}
 
 	if username != nil {
 		updates["username"] = *username
@@ -111,7 +107,7 @@ func (s *UserService) UpdateUserInfo(email, username, avatarUrl *string) (*dto.U
 		return nil, errors.New("没有更新数据")
 	}
 
-	user, err := s.userRepo.UserInfoUpdate(email, updates)
+	user, err := s.userRepo.UserInfoUpdate(userID, updates)
 	if err != nil {
 		return nil, errors.New("更新用户信息失败")
 	}

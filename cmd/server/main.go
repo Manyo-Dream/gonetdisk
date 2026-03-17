@@ -11,8 +11,8 @@ import (
 )
 
 func main() {
-	cfg, err := configs.LoadConfig("E:\\Go_Project\\GoNetDisk\\configs\\config.yaml")
-	// cfg, err := configs.LoadConfig("./configs/config.yaml")
+	// cfg, err := configs.LoadConfig("E:\\Go_Project\\GoNetDisk\\configs\\config.yaml")
+	cfg, err := configs.LoadConfig("./configs/config.yaml")
 	if err != nil {
 		log.Fatal("加载配置文件失败:", err)
 	}
@@ -28,11 +28,10 @@ func main() {
 		cfg.Database.ParseTime,
 		cfg.Database.Loc,
 	)
-	fmt.Println("dsn:", dsn)
-
-	fmt.Println("JWT Secret:", cfg.JWT.Secret)
-	fmt.Println("JWT ExpiresHours:", cfg.JWT.ExpiresHours)
-	fmt.Println("JWT Duration:", cfg.JWT.GetTokenDuration())
+	// fmt.Println("dsn:", dsn)
+	// fmt.Println("JWT Secret:", cfg.JWT.Secret)
+	// fmt.Println("JWT ExpiresHours:", cfg.JWT.ExpiresHours)
+	// fmt.Println("JWT Duration:", cfg.JWT.GetTokenDuration())
 
 	db, err := database.InitDB(dsn)
 	if err != nil {

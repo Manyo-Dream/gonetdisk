@@ -21,6 +21,53 @@ func (r *FileRepo) CreateUserFile(DB *gorm.DB, userfile *model.UserFile) error {
 	return DB.Create(userfile).Error
 }
 
+func (r *FileRepo) GetUserFileByFolderName(userID, parentID uint64, folderName string) (*model.UserFile, error) {
+	var userfile model.UserFile
+
+	err := r.DB.Where("user_id = ? AND parent_id = ? AND file_name = ? AND is_dir = ?", userID, parentID, folderName, true).First(&userfile).Error
+	if err != nil {
+		return nil, err
+	}
+
+	return &userfile, nil
+}
+
+func (r *FileRepo) GetParentFolderByParentID(userID, parentID uint64) (*model.UserFile, error) {
+	var userfile model.UserFile
+
+	err := r.DB.Where("user_id = ? AND id = ? AND is_dir = ?", userID, parentID, true).First(&userfile).Error
+	if err != nil {
+		return nil, err
+	}
+
+	return &userfile, nil
+}
+
+func (r *FileRepo) GetUserFileByID(userID, parentID uint64) (*model.UserFile, error) {
+	var userfile model.UserFile
+
+	err := r.DB.Where("user_id = ? AND id = ? AND is_dir = ?", userID, parentID, true).First(&userfile).Error
+	if err != nil {
+		return nil, err
+	}
+	return &userfile, nil
+}
+
+func (r *FileRepo) GetParentIDyFolderName(userID uint64, folderName string) (*model.UserFile, error) {
+	var userfile model.UserFile
+
+	err := r.DB.Where("user_id = ? AND file_name = ? AND is_dir = ?", userID, folderName, true).First(&userfile).Error
+	if err != nil {
+		return nil, err
+	}
+
+	return &userfile, nil
+}
+
+func (r *FileRepo) UpdateUserFilePath(id uint64, pathStack string) error {
+	return r.DB.Model(&model.UserFile{}).Where("id = ?", id).Update("path_stack", pathStack).Error
+}
+
 func (r *FileRepo) GetPhyFileByFileName(filename string) (*model.PhysicalFile, error) {
 	var phyfile model.PhysicalFile
 

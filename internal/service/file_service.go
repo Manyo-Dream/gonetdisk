@@ -96,7 +96,7 @@ func (s *FileService) UploadPhyFileAndBindFile(email string, parentID uint64, fi
 		// 创建用户文件记录
 		userFile := &model.UserFile{
 			UserID:     userInfo.ID,
-			PhysicalID: hashResult.ID,
+			PhysicalID: &hashResult.ID,
 			ParentID:   parentID,
 			FileName:   respFileName,
 			FileExt:    strings.ToLower(filepath.Ext(respFileName)),
@@ -168,7 +168,7 @@ func (s *FileService) UploadPhyFileAndBindFile(email string, parentID uint64, fi
 		// 创建用户文件记录
 		userFile := &model.UserFile{
 			UserID:     userInfo.ID,
-			PhysicalID: phyFile.ID,
+			PhysicalID: &phyFile.ID,
 			ParentID:   parentID,
 			FileName:   respFileName,
 			FileExt:    strings.ToLower(filepath.Ext(respFileName)),

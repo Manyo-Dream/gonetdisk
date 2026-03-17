@@ -22,11 +22,12 @@ func NewJWTManager(secretKey string, tokenDuration time.Duration) *JWTManager {
 	return &JWTManager{secretKey, tokenDuration}
 }
 
-func (jm *JWTManager) GenerateToken(username, email string) (string, error) {
+func (jm *JWTManager) GenerateToken(userID string, username, email string) (string, error) {
 	claims := Claims{
 		Username: username,
 		Email:    email,
 		RegisteredClaims: jwt.RegisteredClaims{
+			ID:        userID,
 			ExpiresAt: jwt.NewNumericDate(time.Now().Add(jm.tokenDuration)),
 			IssuedAt:  jwt.NewNumericDate(time.Now()),
 			NotBefore: jwt.NewNumericDate(time.Now()),
@@ -51,7 +52,7 @@ func (jm *JWTManager) VerifyToken(tokenString string) (*Claims, error) {
 			}
 			return []byte(jm.secretKey), nil
 		})
-	
+
 	if err != nil {
 		return nil, err
 	}

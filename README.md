@@ -110,17 +110,25 @@ docker-compose up -d
 server:
   port: 9090
   host: "0.0.0.0"
+  mode: debug
 
 database:
+  type: mysql
   host: "localhost"
   port: 3306
   user: "root"
   password: "gonetdisk"
   name: "gonetdisk"
+  charset: "utf8mb4"
+  parseTime: true
+  loc: "Local"
+  max_idle_conns: 10
+  max_open_conns: 100
+  log_mode: "info"
 
 jwt:
   secret: "your-secret-key"
-  expire_hours: 24
+  expiresHours: 24
 ```
 
 ### 4. 运行服务
@@ -129,7 +137,20 @@ jwt:
 go run cmd/server/main.go
 ```
 
-服务启动后监听 `http://localhost:9090`。
+服务入口当前通过相对路径加载 `./configs/config.yaml`，请在仓库根目录执行上面的命令。
+
+服务启动后默认监听 `http://localhost:9090`。
+
+`server.mode` 字段已经存在于配置中，但当前入口还没有调用 `gin.SetMode`，因此这个配置项暂未生效。
+
+### 5. 基线校验
+
+当前仓库还没有单元测试文件，但可以先跑一遍基础测试命令确认编译链路正常：
+
+```powershell
+$env:GOCACHE = (Join-Path $PWD '.gocache')
+go test ./...
+```
 
 ## 📡 API 接口
 
@@ -143,6 +164,8 @@ go run cmd/server/main.go
 | POST | `/user/login` | 用户登录 | ✗ |
 | GET | `/user/info` | 获取用户信息 | ✓ |
 | PUT | `/user/info` | 更新用户信息 | ✓ |
+
+`/user/info` 相关接口当前使用 JWT 中的用户身份，不再信任客户端传入的邮箱或用户 ID。
 
 ### 文件模块
 
@@ -168,10 +191,21 @@ curl -X POST http://localhost:9090/api/v1/user/login \
 
 **上传文件**
 ```bash
-curl -X POST http://localhost:9090/api/v1/fupload \
+curl -X POST http://localhost:9090/api/v1/file/upload \
   -H "Authorization: Bearer <your-token>" \
+  -F "parentID=0" \
   -F "file=@/path/to/photo.jpg"
 ```
+
+上传接口使用 `multipart/form-data`，当前支持的表单字段如下：
+
+- `file`: 必填，上传的文件
+- `parentID`: 选填，父目录 ID，根目录可传 `0`
+
+当前实现还有两个需要注意的点：
+
+- 单文件大小限制为 `100MB`
+- 返回字段 `download_url` 目前是服务端保存的本地文件路径，还不是可直接访问的 HTTP 下载地址
 
 ## 💾 数据库设计
 
@@ -191,6 +225,7 @@ curl -X POST http://localhost:9090/api/v1/fupload \
 - 相同内容的文件只存储一份物理文件，通过哈希去重实现秒传
 - 用户文件表维护每个用户独立的文件目录视图
 - 引用计数 `ref_count` 追踪物理文件被引用次数
+- 当前代码中的文件哈希算法实际使用 `md5`
 
 ## 🗺️ 开发路线
 
