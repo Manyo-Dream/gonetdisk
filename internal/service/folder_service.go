@@ -77,7 +77,6 @@ func (fds *FolderService) CreateFolder(email, folderName string, parentID uint64
 		if err != nil {
 			return nil, fmt.Errorf("父目录不存在或不是当前用户目录: %w", err)
 		}
-
 		pathStack = parentFolder.PathStack + "/" + strconv.FormatUint(userFolder.ID, 10)
 	}
 

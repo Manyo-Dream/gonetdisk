@@ -8,6 +8,7 @@ import (
 	"mime/multipart"
 	"os"
 	"path/filepath"
+	"strconv"
 	"strings"
 	"time"
 
@@ -43,6 +44,14 @@ func (s *FileService) UploadPhyFileAndBindFile(email string, parentID uint64, fi
 
 	if userInfo.Total_Space > 0 && userInfo.Used_Space+uint64(validResult.FileSize) > userInfo.Total_Space {
 		return nil, fmt.Errorf("用户空间不足")
+	}
+
+	// 验证父文件夹是否存在
+	if parentID != 0 {
+		_, err := s.fileRepo.GetParentFolderByParentID(userInfo.ID, parentID)
+		if err != nil {
+			return nil, fmt.Errorf("父目录不存在或不是当前用户目录: %v", err)
+		}
 	}
 
 	// 3.保存到临时文件夹
@@ -81,7 +90,7 @@ func (s *FileService) UploadPhyFileAndBindFile(email string, parentID uint64, fi
 		}
 
 		// 查询原始文件名是否与用户文件中的文件名冲突
-		_, err := s.fileRepo.GetUserFileByFileName(userInfo.ID, validResult.FileName)
+		_, err := s.fileRepo.GetUserFileByFileName(userInfo.ID, parentID, validResult.FileName)
 		if err != nil && !errors.Is(err, gorm.ErrRecordNotFound) {
 			return nil, fmt.Errorf("查询用户文件记录失败: %w", err)
 		}
@@ -106,6 +115,24 @@ func (s *FileService) UploadPhyFileAndBindFile(email string, parentID uint64, fi
 		err = s.fileRepo.CreateUserFile(s.fileRepo.DB, userFile)
 		if err != nil {
 			return nil, fmt.Errorf("创建用户文件记录失败: %w", err)
+		}
+
+		// 构建pathStack
+		var pathStack string
+		if parentID == 0 {
+			pathStack = fmt.Sprintf("/0/%d", userFile.ID)
+		} else {
+			parentFolder, err := s.fileRepo.GetUserFileByID(userInfo.ID, parentID)
+			if err != nil {
+				return nil, fmt.Errorf("父目录不存在或不是当前用户目录: %w", err)
+			}
+			pathStack = parentFolder.PathStack + "/" + strconv.FormatUint(userFile.ID, 10)
+		}
+
+		// 更新用户文件表
+		err = s.fileRepo.UpdateUserFilePath(userFile.ID, pathStack)
+		if err != nil {
+			return nil, fmt.Errorf("更新用户文件表失败: %w", err)
 		}
 
 		// 更新用户已使用空间
@@ -145,7 +172,7 @@ func (s *FileService) UploadPhyFileAndBindFile(email string, parentID uint64, fi
 		// 查询原始文件名是否与用户文件中的文件名冲突
 		respFileName := validResult.FileName
 
-		_, err = s.fileRepo.GetUserFileByFileName(userInfo.ID, validResult.FileName)
+		_, err = s.fileRepo.GetUserFileByFileName(userInfo.ID, parentID, validResult.FileName)
 		if err != nil && !errors.Is(err, gorm.ErrRecordNotFound) {
 			return nil, fmt.Errorf("查询用户文件记录失败: %w", err)
 		}
@@ -159,12 +186,6 @@ func (s *FileService) UploadPhyFileAndBindFile(email string, parentID uint64, fi
 				ext)
 		}
 
-		// 更新用户已使用空间
-		err = s.fileRepo.UpdateUserSpace(s.fileRepo.DB, userInfo.ID, validResult.FileSize)
-		if err != nil {
-			return nil, fmt.Errorf("更新用户已使用空间失败: %w", err)
-		}
-
 		// 创建用户文件记录
 		userFile := &model.UserFile{
 			UserID:     userInfo.ID,
@@ -172,13 +193,36 @@ func (s *FileService) UploadPhyFileAndBindFile(email string, parentID uint64, fi
 			ParentID:   parentID,
 			FileName:   respFileName,
 			FileExt:    strings.ToLower(filepath.Ext(respFileName)),
-			PathStack:  "local",
 			IsDir:      false,
 		}
 
 		err = s.fileRepo.CreateUserFile(s.fileRepo.DB, userFile)
 		if err != nil {
 			return nil, fmt.Errorf("创建用户文件记录失败: %w", err)
+		}
+
+		// 构建pathStack
+		var pathStack string
+		if parentID == 0 {
+			pathStack = fmt.Sprintf("/0/%d", userFile.ID)
+		} else {
+			parentFolder, err := s.fileRepo.GetUserFileByID(userInfo.ID, parentID)
+			if err != nil {
+				return nil, fmt.Errorf("父目录不存在或不是当前用户目录: %w", err)
+			}
+			pathStack = parentFolder.PathStack + "/" + strconv.FormatUint(userFile.ID, 10)
+		}
+
+		// 更新用户文件表
+		err = s.fileRepo.UpdateUserFilePath(userFile.ID, pathStack)
+		if err != nil {
+			return nil, fmt.Errorf("更新用户文件表失败: %w", err)
+		}
+
+		// 更新用户已使用空间
+		err = s.fileRepo.UpdateUserSpace(s.fileRepo.DB, userInfo.ID, validResult.FileSize)
+		if err != nil {
+			return nil, fmt.Errorf("更新用户已使用空间失败: %w", err)
 		}
 
 		return &dto.FileUploadResponse{
@@ -194,14 +238,10 @@ func (s *FileService) validFile(fileHeader *multipart.FileHeader) (*model.Physic
 	// 1. 获取基本信息
 	fileName := fileHeader.Filename
 	fileSize := fileHeader.Size
-	ext := filepath.Ext(fileName)
 
 	// 2. 验证文件名与后缀
 	if fileName == "" {
 		return nil, errors.New("文件名为空")
-	}
-	if ext == "" {
-		return nil, errors.New("无法识别文件后缀")
 	}
 
 	// 3. 验证文件大小

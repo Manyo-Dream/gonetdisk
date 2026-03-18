@@ -89,10 +89,10 @@ func (r *FileRepo) UpdatePhyFilePath(id uint64, filePath string) error {
 	return r.DB.Model(&model.PhysicalFile{}).Where("id = ?", id).Update("file_path", filePath).Error
 }
 
-func (r *FileRepo) GetUserFileByFileName(userID uint64, filename string) (*model.UserFile, error) {
+func (r *FileRepo) GetUserFileByFileName(userID, parentID uint64, filename string) (*model.UserFile, error) {
 	var userfile model.UserFile
 
-	err := r.DB.Model(&model.UserFile{}).Where("user_id = ? AND file_name = ?", userID, filename).First(&userfile).Error
+	err := r.DB.Model(&model.UserFile{}).Where("user_id = ? AND parent_id = ? AND file_name = ? AND is_dir = ?", userID, parentID, filename, false).First(&userfile).Error
 	if err != nil {
 		return nil, err
 	}
