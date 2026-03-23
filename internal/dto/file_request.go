@@ -1,5 +1,5 @@
 package dto
 
 type FileUploadRequest struct {
-	ParentID uint64 `form:"parentID"`
+	ParentID uint64 `form:"parent_id"`
 }

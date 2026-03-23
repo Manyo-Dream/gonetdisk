@@ -28,13 +28,13 @@ func NewFolderService(userRepo *repository.UserRepo, fileRepo *repository.FileRe
 func (fds *FolderService) CreateFolder(email, folderName string, parentID uint64) (*dto.FolderResponse, error) {
 	// 参数校验
 	if err := fds.VolidtateFolderName(folderName); err != nil {
-		return nil, fmt.Errorf("校验FolderName失败: %w", err)
+		return nil, BadRequest(fmt.Sprintf("校验FolderName失败: %s", err.Error()))
 	}
 
 	// 获取userID
 	userInfo, err := fds.userRepo.GetByEmail(email)
 	if err != nil {
-		return nil, fmt.Errorf("获取UserID失败: %w", err)
+		return nil, NotFound(fmt.Sprintf("获取UserID失败: %s", err.Error()))
 	}
 
 	// 查询parentID对应的父文件夹是否存在(根目录0、其他目录分情况查询)
@@ -42,7 +42,7 @@ func (fds *FolderService) CreateFolder(email, folderName string, parentID uint64
 	if parentID != 0 {
 		_, err := fds.fileRepo.GetParentFolderByParentID(userInfo.ID, parentID)
 		if err != nil {
-			return nil, fmt.Errorf("检查ParentID状态失败: %w", err)
+			return nil, NotFound(fmt.Sprintf("父目录不存在或不是当前用户目录: %s", err.Error()))
 		}
 	}
 
@@ -52,7 +52,7 @@ func (fds *FolderService) CreateFolder(email, folderName string, parentID uint64
 	if err == nil {
 		folderName = fmt.Sprintf("%s_%d", folderName, time.Now().UnixNano())
 	} else if !errors.Is(err, gorm.ErrRecordNotFound) {
-		return nil, fmt.Errorf("检查文件夹重名失败: %w", err)
+		return nil, Conflict(fmt.Sprintf("检查文件夹重名失败: %s", err.Error()))
 	}
 
 	// 创建用户文件表
@@ -65,7 +65,7 @@ func (fds *FolderService) CreateFolder(email, folderName string, parentID uint64
 	}
 	err = fds.fileRepo.CreateUserFile(fds.fileRepo.DB, userFolder)
 	if err != nil {
-		return nil, fmt.Errorf("创建用户文件夹失败: %w", err)
+		return nil, Internal(fmt.Sprintf("创建用户文件夹失败: %s", err))
 	}
 
 	// 构建pathStack = parentID + ID(根目录0、其他目录分情况构建)
@@ -75,7 +75,7 @@ func (fds *FolderService) CreateFolder(email, folderName string, parentID uint64
 	} else {
 		parentFolder, err := fds.fileRepo.GetUserFileByID(userInfo.ID, parentID)
 		if err != nil {
-			return nil, fmt.Errorf("父目录不存在或不是当前用户目录: %w", err)
+			return nil, NotFound(fmt.Sprintf("父目录不存在或不是当前用户目录: %s", err.Error()))
 		}
 		pathStack = parentFolder.PathStack + "/" + strconv.FormatUint(userFolder.ID, 10)
 	}
@@ -83,7 +83,7 @@ func (fds *FolderService) CreateFolder(email, folderName string, parentID uint64
 	// 更新用户文件表
 	err = fds.fileRepo.UpdateUserFilePath(userFolder.ID, pathStack)
 	if err != nil {
-		return nil, fmt.Errorf("更新用户文件表失败: %w", err)
+		return nil, Internal(fmt.Sprintf("更新用户文件表失败: %s", err.Error()))
 	}
 
 	// 返回响应

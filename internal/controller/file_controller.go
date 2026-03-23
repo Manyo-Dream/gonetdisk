@@ -45,7 +45,7 @@ func (c *FileController) UploadFile(ctx *gin.Context) {
 	// 上传物理文件
 	resp, err := c.FileService.UploadPhyFileAndBindFile(email, req.ParentID, fileHeader)
 	if err != nil {
-		ctx.JSON(http.StatusInternalServerError, gin.H{"error": "上传文件失败"})
+		ctx.JSON(statusFromErr(err), gin.H{"error": "上传文件失败:" + err.Error()})
 		return
 	}
 

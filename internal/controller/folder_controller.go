@@ -35,7 +35,7 @@ func (fdc *FolderController) CreateFolder(ctx *gin.Context) {
 
 	resp, err := fdc.FolderServicer.CreateFolder(email, req.FolderName, req.ParentID)
 	if err != nil {
-		ctx.JSON(http.StatusConflict, gin.H{
+		ctx.JSON(statusFromErr(err), gin.H{
 			"error": "创建文件夹失败:" + err.Error(),
 		})
 		return

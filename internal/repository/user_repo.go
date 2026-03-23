@@ -38,7 +38,15 @@ func (r *UserRepo) GetByUserName(username string) (*model.User, error) {
 func (r *UserRepo) UserInfoUpdate(userID string, updates map[string]any) (*model.User, error) {
 	var user model.User
 
-	err := r.db.Model(&model.User{}).Where("id = ?", userID).Updates(updates).Find(&user).Error
+	db := r.db.Model(&model.User{}).Where("id = ?", userID).Updates(updates)
+	if db.Error != nil {
+		return nil, db.Error
+	}
+	if db.RowsAffected == 0 {
+		return nil, gorm.ErrRecordNotFound
+	}
+
+	err := r.db.Where("id = ?", userID).First(&user).Error
 	if err != nil {
 		return nil, err
 	}

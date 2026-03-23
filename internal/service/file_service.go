@@ -33,31 +33,31 @@ func (s *FileService) UploadPhyFileAndBindFile(email string, parentID uint64, fi
 	// 1.验证文件信息
 	validResult, err := s.validFile(fileHeader)
 	if err != nil {
-		return nil, fmt.Errorf("验证文件信息失败: %w", err)
+		return nil, BadRequest(fmt.Sprintf("验证文件信息失败: %s", err))
 	}
 
 	// 2.获取用户信息
 	userInfo, err := s.userRepo.GetByEmail(email)
 	if err != nil {
-		return nil, fmt.Errorf("未找到用户: %w", err)
+		return nil, NotFound(fmt.Sprintf("获取用户信息失败: %s", err))
 	}
 
 	if userInfo.Total_Space > 0 && userInfo.Used_Space+uint64(validResult.FileSize) > userInfo.Total_Space {
-		return nil, fmt.Errorf("用户空间不足")
+		return nil, Conflict(fmt.Sprintf("空间不足：%s", err))
 	}
 
 	// 验证父文件夹是否存在
 	if parentID != 0 {
 		_, err := s.fileRepo.GetParentFolderByParentID(userInfo.ID, parentID)
 		if err != nil {
-			return nil, fmt.Errorf("父目录不存在或不是当前用户目录: %v", err)
+			return nil, NotFound(fmt.Sprintf("父文件夹不存在: %s", err))
 		}
 	}
 
 	// 3.保存到临时文件夹
 	tempPath, err := s.saveToTemp(fileHeader)
 	if err != nil {
-		return nil, fmt.Errorf("保存到临时文件夹失败: %w", err)
+		return nil, Internal(fmt.Sprintf("保存到临时文件夹失败: %s", err))
 	}
 	defer func() {
 		if _, err := os.Stat(tempPath); err == nil {
@@ -72,7 +72,7 @@ func (s *FileService) UploadPhyFileAndBindFile(email string, parentID uint64, fi
 	// 4.计算文件哈希
 	fileHash, err := s.calculateFileHash(tempPath)
 	if err != nil {
-		return nil, fmt.Errorf("计算文件哈希失败: %w", err)
+		return nil, Internal(fmt.Sprintf("计算文件哈希失败: %s", err))
 	}
 
 	// 5.哈希查重
@@ -86,13 +86,13 @@ func (s *FileService) UploadPhyFileAndBindFile(email string, parentID uint64, fi
 		// 更新物理文件引用数
 		err = s.fileRepo.IncrPhyFileRefCount(s.fileRepo.DB, hashResult.ID, 1)
 		if err != nil {
-			return nil, fmt.Errorf("更新物理文件引用数失败: %w", err)
+			return nil, Internal(fmt.Sprintf("更新物理文件引用数失败: %s", err))
 		}
 
 		// 查询原始文件名是否与用户文件中的文件名冲突
 		_, err := s.fileRepo.GetUserFileByFileName(userInfo.ID, parentID, validResult.FileName)
 		if err != nil && !errors.Is(err, gorm.ErrRecordNotFound) {
-			return nil, fmt.Errorf("查询用户文件记录失败: %w", err)
+			return nil, Internal(fmt.Sprintf("查询用户文件记录失败: %s", err))
 		}
 
 		if err == nil {
@@ -114,7 +114,7 @@ func (s *FileService) UploadPhyFileAndBindFile(email string, parentID uint64, fi
 
 		err = s.fileRepo.CreateUserFile(s.fileRepo.DB, userFile)
 		if err != nil {
-			return nil, fmt.Errorf("创建用户文件记录失败: %w", err)
+			return nil, Internal(fmt.Sprintf("创建用户文件记录失败: %s", err))
 		}
 
 		// 构建pathStack
@@ -124,7 +124,7 @@ func (s *FileService) UploadPhyFileAndBindFile(email string, parentID uint64, fi
 		} else {
 			parentFolder, err := s.fileRepo.GetUserFileByID(userInfo.ID, parentID)
 			if err != nil {
-				return nil, fmt.Errorf("父目录不存在或不是当前用户目录: %w", err)
+				return nil, Internal(fmt.Sprintf("父目录不存在或不是当前用户目录: %s", err))
 			}
 			pathStack = parentFolder.PathStack + "/" + strconv.FormatUint(userFile.ID, 10)
 		}
@@ -132,13 +132,13 @@ func (s *FileService) UploadPhyFileAndBindFile(email string, parentID uint64, fi
 		// 更新用户文件表
 		err = s.fileRepo.UpdateUserFilePath(userFile.ID, pathStack)
 		if err != nil {
-			return nil, fmt.Errorf("更新用户文件表失败: %w", err)
+			return nil, Internal(fmt.Sprintf("更新用户文件表失败: %s", err))
 		}
 
 		// 更新用户已使用空间
 		err = s.fileRepo.UpdateUserSpace(s.fileRepo.DB, userInfo.ID, validResult.FileSize)
 		if err != nil {
-			return nil, fmt.Errorf("更新用户已使用空间失败: %w", err)
+			return nil, Internal(fmt.Sprintf("更新用户已使用空间失败: %s", err))
 		}
 
 		return &dto.FileUploadResponse{
@@ -150,7 +150,7 @@ func (s *FileService) UploadPhyFileAndBindFile(email string, parentID uint64, fi
 		// 保存到正式目录
 		respDownloadURL, err := s.promoteToLocal(tempPath, validResult.FileName)
 		if err != nil {
-			return nil, fmt.Errorf("保存到正式目录失败: %w", err)
+			return nil, Internal(fmt.Sprintf("保存到正式目录失败: %s", err))
 		}
 
 		// 创建物理文件记录
@@ -166,7 +166,7 @@ func (s *FileService) UploadPhyFileAndBindFile(email string, parentID uint64, fi
 
 		err = s.fileRepo.CreatePhyFile(s.fileRepo.DB, phyFile)
 		if err != nil {
-			return nil, fmt.Errorf("创建物理文件记录失败: %w", err)
+			return nil, Internal(fmt.Sprintf("创建物理文件记录失败: %s", err))
 		}
 
 		// 查询原始文件名是否与用户文件中的文件名冲突
@@ -174,7 +174,7 @@ func (s *FileService) UploadPhyFileAndBindFile(email string, parentID uint64, fi
 
 		_, err = s.fileRepo.GetUserFileByFileName(userInfo.ID, parentID, validResult.FileName)
 		if err != nil && !errors.Is(err, gorm.ErrRecordNotFound) {
-			return nil, fmt.Errorf("查询用户文件记录失败: %w", err)
+			return nil, Internal(fmt.Sprintf("查询用户文件记录失败: %s", err))
 		}
 		if err == nil {
 			ext := filepath.Ext(validResult.FileName)
@@ -198,7 +198,7 @@ func (s *FileService) UploadPhyFileAndBindFile(email string, parentID uint64, fi
 
 		err = s.fileRepo.CreateUserFile(s.fileRepo.DB, userFile)
 		if err != nil {
-			return nil, fmt.Errorf("创建用户文件记录失败: %w", err)
+			return nil, Internal(fmt.Sprintf("创建用户文件记录失败: %s", err))
 		}
 
 		// 构建pathStack
@@ -208,7 +208,7 @@ func (s *FileService) UploadPhyFileAndBindFile(email string, parentID uint64, fi
 		} else {
 			parentFolder, err := s.fileRepo.GetUserFileByID(userInfo.ID, parentID)
 			if err != nil {
-				return nil, fmt.Errorf("父目录不存在或不是当前用户目录: %w", err)
+				return nil, Internal(fmt.Sprintf("父目录不存在或不是当前用户目录: %s", err))
 			}
 			pathStack = parentFolder.PathStack + "/" + strconv.FormatUint(userFile.ID, 10)
 		}
@@ -216,13 +216,13 @@ func (s *FileService) UploadPhyFileAndBindFile(email string, parentID uint64, fi
 		// 更新用户文件表
 		err = s.fileRepo.UpdateUserFilePath(userFile.ID, pathStack)
 		if err != nil {
-			return nil, fmt.Errorf("更新用户文件表失败: %w", err)
+			return nil, Internal(fmt.Sprintf("更新用户文件表失败: %s", err))
 		}
 
 		// 更新用户已使用空间
 		err = s.fileRepo.UpdateUserSpace(s.fileRepo.DB, userInfo.ID, validResult.FileSize)
 		if err != nil {
-			return nil, fmt.Errorf("更新用户已使用空间失败: %w", err)
+			return nil, Internal(fmt.Sprintf("更新用户已使用空间失败: %s", err))
 		}
 
 		return &dto.FileUploadResponse{
@@ -230,7 +230,7 @@ func (s *FileService) UploadPhyFileAndBindFile(email string, parentID uint64, fi
 			FileName:    respFileName,
 		}, nil
 	} else {
-		return nil, fmt.Errorf("哈希查重失败: %w", err)
+		return nil, Internal(fmt.Sprintf("哈希查重失败: %s", err))
 	}
 }
 
@@ -239,9 +239,12 @@ func (s *FileService) validFile(fileHeader *multipart.FileHeader) (*model.Physic
 	fileName := fileHeader.Filename
 	fileSize := fileHeader.Size
 
+	ext := filepath.Ext(fileName)
+	name := strings.TrimSuffix(fileName, ext)
+
 	// 2. 验证文件名与后缀
-	if fileName == "" {
-		return nil, errors.New("文件名为空")
+	if name == "" || len(ext) <= 1 {
+		return nil, errors.New("文件名或扩展名违规")
 	}
 
 	// 3. 验证文件大小

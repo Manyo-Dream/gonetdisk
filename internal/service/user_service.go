@@ -9,6 +9,7 @@ import (
 	"github.com/manyodream/gonetdisk/internal/repository"
 	"github.com/manyodream/gonetdisk/internal/util"
 	"golang.org/x/crypto/bcrypt"
+	"gorm.io/gorm"
 )
 
 type UserService struct {
@@ -21,12 +22,18 @@ func NewUserService(userRepo *repository.UserRepo, jwtManger *util.JWTManager) *
 }
 
 func (s *UserService) Register(email, username, password string) (*dto.RegisterResponse, error) {
-	existingUser, _ := s.userRepo.GetByEmail(email)
+	existingUser, err := s.userRepo.GetByEmail(email)
+	if err != nil && !errors.Is(err, gorm.ErrRecordNotFound) {
+		return nil, fmt.Errorf("检查邮箱是否已存在失败: %w", err)
+	}
 	if existingUser != nil {
 		return nil, errors.New("邮箱地址已存在")
 	}
 
-	existingUser, _ = s.userRepo.GetByUserName(username)
+	existingUser, err = s.userRepo.GetByUserName(username)
+	if err != nil && !errors.Is(err, gorm.ErrRecordNotFound) {
+		return nil, fmt.Errorf("检查用户名是否已存在失败: %w", err)
+	}
 	if existingUser != nil {
 		return nil, errors.New("用户名称已存在")
 	}
@@ -109,6 +116,9 @@ func (s *UserService) UpdateUserInfo(userID string, username, avatarUrl *string)
 
 	user, err := s.userRepo.UserInfoUpdate(userID, updates)
 	if err != nil {
+		if errors.Is(err, gorm.ErrRecordNotFound) {
+			return nil, errors.New("用户不存在")
+		}
 		return nil, errors.New("更新用户信息失败")
 	}
 
@@ -118,3 +128,4 @@ func (s *UserService) UpdateUserInfo(userID string, username, avatarUrl *string)
 		AvatarUrl: user.Avatar_Url,
 	}, nil
 }
+
