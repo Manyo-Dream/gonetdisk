@@ -29,7 +29,8 @@ func (fdc *FolderController) CreateFolder(ctx *gin.Context) {
 
 	email, ok := middleware.GetEmail(ctx)
 	if !ok {
-		ctx.JSON(http.StatusUnauthorized, gin.H{"error": "未认证用户"})
+		ctx.JSON(http.StatusUnauthorized, gin.H{
+			"error": "未认证用户"})
 		return
 	}
 

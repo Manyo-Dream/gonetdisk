@@ -122,7 +122,7 @@ func (s *FileService) UploadPhyFileAndBindFile(email string, parentID uint64, fi
 		if parentID == 0 {
 			pathStack = fmt.Sprintf("/0/%d", userFile.ID)
 		} else {
-			parentFolder, err := s.fileRepo.GetUserFileByID(userInfo.ID, parentID)
+			parentFolder, err := s.fileRepo.GetUserFolderByID(userInfo.ID, parentID)
 			if err != nil {
 				return nil, Internal(fmt.Sprintf("父目录不存在或不是当前用户目录: %s", err))
 			}
@@ -142,8 +142,12 @@ func (s *FileService) UploadPhyFileAndBindFile(email string, parentID uint64, fi
 		}
 
 		return &dto.FileUploadResponse{
-			DownloadURL: respDownloadURL,
+			UserFileID:  userFile.ID,
 			FileName:    respFileName,
+			FileExt:     strings.ToLower(filepath.Ext(respFileName)),
+			FIleSize:    validResult.FileSize,
+			ParentID:    parentID,
+			DownloadURL: respDownloadURL,
 		}, nil
 	} else if errors.Is(err, gorm.ErrRecordNotFound) {
 		// 7.文件不存在
@@ -206,7 +210,7 @@ func (s *FileService) UploadPhyFileAndBindFile(email string, parentID uint64, fi
 		if parentID == 0 {
 			pathStack = fmt.Sprintf("/0/%d", userFile.ID)
 		} else {
-			parentFolder, err := s.fileRepo.GetUserFileByID(userInfo.ID, parentID)
+			parentFolder, err := s.fileRepo.GetUserFolderByID(userInfo.ID, parentID)
 			if err != nil {
 				return nil, Internal(fmt.Sprintf("父目录不存在或不是当前用户目录: %s", err))
 			}
@@ -226,12 +230,45 @@ func (s *FileService) UploadPhyFileAndBindFile(email string, parentID uint64, fi
 		}
 
 		return &dto.FileUploadResponse{
-			DownloadURL: respDownloadURL,
+			UserFileID:  userFile.ID,
 			FileName:    respFileName,
+			FileExt:     strings.ToLower(filepath.Ext(respFileName)),
+			FIleSize:    validResult.FileSize,
+			ParentID:    parentID,
+			DownloadURL: respDownloadURL,
 		}, nil
 	} else {
 		return nil, Internal(fmt.Sprintf("哈希查重失败: %s", err))
 	}
+}
+
+func (s *FileService) DownloadUserFile(userID, userFileID uint64) (*dto.FileDownloadMeta, *os.File, error) {
+	userFile, phyFile, err := s.fileRepo.GetFileByDownloadReq(userID, userFileID)
+	if errors.Is(err, gorm.ErrRecordNotFound) {
+		return nil, nil, NotFound("文件不存在")
+	} else if err != nil {
+		return nil, nil, Internal(fmt.Sprintf("查询文件失败: %s", err))
+	}
+
+	if phyFile.StorageType != "local" {
+		return nil, nil, Internal("不支持的存储类型: " + phyFile.StorageType)
+	}
+
+	if phyFile.FilePath == "" {
+		return nil, nil, NotFound("文件路径为空")
+	}
+
+	file, err := os.Open(phyFile.FilePath)
+	if err != nil {
+		return nil, nil, Internal(fmt.Sprintf("文件获取失败: %s", err))
+	}
+
+	return &dto.FileDownloadMeta{
+		FileName:    userFile.FileName,
+		StorageType: phyFile.StorageType,
+		FileExt:     userFile.FileExt,
+		FileSize:    phyFile.FileSize,
+	}, file, nil
 }
 
 func (s *FileService) validFile(fileHeader *multipart.FileHeader) (*model.PhysicalFile, error) {

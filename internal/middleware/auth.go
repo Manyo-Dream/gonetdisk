@@ -2,6 +2,7 @@ package middleware
 
 import (
 	"net/http"
+	"strconv"
 	"strings"
 
 	"github.com/gin-gonic/gin"
@@ -31,7 +32,7 @@ func AuthMiddleware(jwtManager *util.JWTManager) gin.HandlerFunc {
 			return
 		}
 
-		ctx.Set("userID", claims.ID)
+		ctx.Set("userID", claims.RegisteredClaims.Subject)
 		ctx.Set("username", claims.Username)
 		ctx.Set("email", claims.Email)
 
@@ -56,11 +57,15 @@ func GetEmail(ctx *gin.Context) (string, bool) {
 	return v, ok
 }
 
-func GetUserID(ctx *gin.Context) (string, bool) {
-	email, exists := ctx.Get("userID")
+func GetUserID(ctx *gin.Context) (uint64, bool) {
+	userID, exists := ctx.Get("userID")
 	if !exists {
-		return "", false
+		return 0, false
 	}
-	v, ok := email.(string)
+	vStr, ok := userID.(string)
+	v, err := strconv.ParseUint(vStr, 10, 64)
+	if err != nil {
+		return 0, false
+	}
 	return v, ok
 }

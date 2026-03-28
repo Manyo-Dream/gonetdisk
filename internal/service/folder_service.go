@@ -73,7 +73,7 @@ func (fds *FolderService) CreateFolder(email, folderName string, parentID uint64
 	if parentID == 0 {
 		pathStack = fmt.Sprintf("/0/%d", userFolder.ID)
 	} else {
-		parentFolder, err := fds.fileRepo.GetUserFileByID(userInfo.ID, parentID)
+		parentFolder, err := fds.fileRepo.GetUserFolderByID(userInfo.ID, parentID)
 		if err != nil {
 			return nil, NotFound(fmt.Sprintf("父目录不存在或不是当前用户目录: %s", err.Error()))
 		}

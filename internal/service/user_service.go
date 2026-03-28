@@ -99,7 +99,7 @@ func (s *UserService) GetUserInfo(email string) (*dto.UserInfoGetResponse, error
 	}, nil
 }
 
-func (s *UserService) UpdateUserInfo(userID string, username, avatarUrl *string) (*dto.UserInfoUpdateResponse, error) {
+func (s *UserService) UpdateUserInfo(userID uint64, username, avatarUrl *string) (*dto.UserInfoUpdateResponse, error) {
 	updates := make(map[string]any)
 
 	if username != nil {

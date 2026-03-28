@@ -43,10 +43,20 @@ func (r *FileRepo) GetParentFolderByParentID(userID, parentID uint64) (*model.Us
 	return &userfile, nil
 }
 
-func (r *FileRepo) GetUserFileByID(userID, parentID uint64) (*model.UserFile, error) {
+func (r *FileRepo) GetUserFolderByID(userID, parentID uint64) (*model.UserFile, error) {
 	var userfile model.UserFile
 
 	err := r.DB.Where("user_id = ? AND id = ? AND is_dir = ?", userID, parentID, true).First(&userfile).Error
+	if err != nil {
+		return nil, err
+	}
+	return &userfile, nil
+}
+
+func (r *FileRepo) GetUserFileByID(userID, userFileID uint64) (*model.UserFile, error) {
+	var userfile model.UserFile
+
+	err := r.DB.Model(&model.UserFile{}).Where("user_id = ? AND id = ? AND is_dir = ?", userID, userFileID, false).First(&userfile).Error
 	if err != nil {
 		return nil, err
 	}
@@ -92,7 +102,9 @@ func (r *FileRepo) UpdatePhyFilePath(id uint64, filePath string) error {
 func (r *FileRepo) GetUserFileByFileName(userID, parentID uint64, filename string) (*model.UserFile, error) {
 	var userfile model.UserFile
 
-	err := r.DB.Model(&model.UserFile{}).Where("user_id = ? AND parent_id = ? AND file_name = ? AND is_dir = ?", userID, parentID, filename, false).First(&userfile).Error
+	err := r.DB.Model(&model.UserFile{}).
+		Where("user_id = ? AND parent_id = ? AND file_name = ? AND is_dir = ?", userID, parentID, filename, false).
+		First(&userfile).Error
 	if err != nil {
 		return nil, err
 	}
@@ -129,4 +141,42 @@ func (r *FileRepo) UpdateUserSpace(DB *gorm.DB, userID uint64, fileSize int64) e
 		Where("id = ?", userID).
 		UpdateColumn("used_space", gorm.Expr("COALESCE(used_space, 0) + ?", fileSize)).
 		Error
+}
+
+func (r *FileRepo) GetPhyFileByUserFile(userID, userFileID uint64) (*uint64, error) {
+	var result struct {
+		PhysicalID *uint64 `gorm:"column:physical_id"`
+	}
+
+	err := r.DB.Model(&model.UserFile{}).
+		Select("physical_id").
+		Where("id = ? AND user_id = ? AND is_dir = ?", userFileID, userID, false).
+		Take(&result).Error
+	if err != nil {
+		return nil, err
+	}
+
+	if result.PhysicalID == nil {
+		return nil, gorm.ErrRecordNotFound
+	}
+
+	return result.PhysicalID, nil
+}
+
+func (r *FileRepo) GetFileByDownloadReq(userID, userFileID uint64) (*model.UserFile, *model.PhysicalFile, error) {
+	var userFile model.UserFile
+
+	err := r.DB.
+		Preload("PhysicalFile"). //预载PhysicalFile表，通过相连外键进行查询
+		Where("id = ? AND user_id = ? AND is_dir = ?", userFileID, userID, false).
+		Take(&userFile).Error
+	if err != nil {
+		return nil, nil, err
+	}
+
+	if userFile.PhysicalID == nil || userFile.PhysicalFile == nil {
+		return nil, nil, gorm.ErrRecordNotFound
+	}
+
+	return &userFile, userFile.PhysicalFile, nil
 }

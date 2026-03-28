@@ -12,6 +12,7 @@ import (
 
 func SetupRouter(db *gorm.DB, jwtManager *util.JWTManager) *gin.Engine {
 	r := gin.Default()
+	r.Use(middleware.CORSMiddleware())
 
 	userRepo := repository.NewUserRepo(db)
 	userService := service.NewUserService(userRepo, jwtManager)
@@ -41,6 +42,7 @@ func SetupRouter(db *gorm.DB, jwtManager *util.JWTManager) *gin.Engine {
 		fileRepo.Use(middleware.AuthMiddleware(jwtManager))
 		{
 			fileRepo.POST("/upload", fileController.UploadFile)
+			fileRepo.GET("/download/:userfile_id", fileController.DownloadFile)
 		}
 
 		folderRepo := v1.Group("/folder")

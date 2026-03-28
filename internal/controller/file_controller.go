@@ -1,7 +1,9 @@
 package controller
 
 import (
+	"fmt"
 	"net/http"
+	"net/url"
 
 	"github.com/gin-gonic/gin"
 	"github.com/manyodream/gonetdisk/internal/dto"
@@ -50,4 +52,36 @@ func (c *FileController) UploadFile(ctx *gin.Context) {
 	}
 
 	ctx.JSON(http.StatusOK, resp)
+}
+
+func (c *FileController) DownloadFile(ctx *gin.Context) {
+	var req dto.FileDownloadRequest
+
+	if err := ctx.ShouldBindUri(&req); err != nil {
+		ctx.JSON(http.StatusBadRequest, gin.H{
+			"error": "请求参数错误:" + err.Error(),
+		})
+		return
+	}
+
+	userID, ok := middleware.GetUserID(ctx)
+	if !ok {
+		ctx.JSON(http.StatusUnauthorized, gin.H{
+			"error": "未认证用户",
+		})
+		return
+	}
+
+	filemata, file, err := c.FileService.DownloadUserFile(userID, req.UserFileID)
+	if err != nil {
+		ctx.JSON(statusFromErr(err), gin.H{
+			"message": err.Error(),
+		})
+		return
+	}
+	defer file.Close()
+
+	encodedFilename := url.PathEscape(filemata.FileName)
+	ctx.Header("Content-Disposition", fmt.Sprintf("attachment; filename=%s", encodedFilename))
+	ctx.DataFromReader(http.StatusOK, filemata.FileSize, "application/octet-stream", file, nil)
 }
