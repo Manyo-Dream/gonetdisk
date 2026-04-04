@@ -2,6 +2,7 @@ package router
 
 import (
 	"github.com/gin-gonic/gin"
+	"github.com/manyodream/gonetdisk/configs"
 	"github.com/manyodream/gonetdisk/internal/controller"
 	"github.com/manyodream/gonetdisk/internal/middleware"
 	"github.com/manyodream/gonetdisk/internal/repository"
@@ -10,7 +11,7 @@ import (
 	"gorm.io/gorm"
 )
 
-func SetupRouter(db *gorm.DB, jwtManager *util.JWTManager) *gin.Engine {
+func SetupRouter(db *gorm.DB, jwtManager *util.JWTManager, config *configs.Config) *gin.Engine {
 	r := gin.Default()
 	r.Use(middleware.CORSMiddleware())
 
@@ -19,7 +20,7 @@ func SetupRouter(db *gorm.DB, jwtManager *util.JWTManager) *gin.Engine {
 	userController := controller.NewUserController(userService)
 
 	fileRepo := repository.NewFileRepo(db)
-	fileService := service.NewFileService(userRepo, fileRepo, jwtManager)
+	fileService := service.NewFileService(userRepo, fileRepo, jwtManager, &config.Storage, &config.Upload)
 	fileController := controller.NewFileController(fileService)
 
 	folderService := service.NewFolderService(userRepo, fileRepo, jwtManager)
@@ -27,28 +28,28 @@ func SetupRouter(db *gorm.DB, jwtManager *util.JWTManager) *gin.Engine {
 
 	v1 := r.Group("/api/v1")
 	{
-		userRepo := v1.Group("/user")
+		userHandler := v1.Group("/user")
 		{
-			userRepo.POST("/register", userController.Register)
-			userRepo.POST("/login", userController.Login)
+			userHandler.POST("/register", userController.Register)
+			userHandler.POST("/login", userController.Login)
 		}
-		userRepo.Use(middleware.AuthMiddleware(jwtManager))
+		userHandler.Use(middleware.AuthMiddleware(jwtManager, userRepo))
 		{
-			userRepo.GET("/info", userController.GetUserInfo)
-			userRepo.PUT("/info", userController.UpdateUserInfo)
-		}
-
-		fileRepo := v1.Group("/file")
-		fileRepo.Use(middleware.AuthMiddleware(jwtManager))
-		{
-			fileRepo.POST("/upload", fileController.UploadFile)
-			fileRepo.GET("/download/:userfile_id", fileController.DownloadFile)
+			userHandler.GET("/info", userController.GetUserInfo)
+			userHandler.PUT("/info", userController.UpdateUserInfo)
 		}
 
-		folderRepo := v1.Group("/folder")
-		folderRepo.Use(middleware.AuthMiddleware(jwtManager))
+		fileHandler := v1.Group("/file")
+		fileHandler.Use(middleware.AuthMiddleware(jwtManager, userRepo))
 		{
-			folderRepo.POST("/create", folderController.CreateFolder)
+			fileHandler.POST("/upload", fileController.UploadFile)
+			fileHandler.GET("/download/:userfile_id", fileController.DownloadFile)
+		}
+
+		folderHandler := v1.Group("/folder")
+		folderHandler.Use(middleware.AuthMiddleware(jwtManager, userRepo))
+		{
+			folderHandler.POST("/create", folderController.CreateFolder)
 		}
 	}
 	return r

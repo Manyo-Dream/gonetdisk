@@ -14,16 +14,17 @@
 
 ---
 
-GoNetDisk 当前是一套最小可用的网盘后端，已经实现用户体系、JWT 鉴权、单文件上传、文件哈希去重、目录创建和基础配额累加。下载、列表、删除、分享、预览、同步、回收站、管理后台等能力还未在 Go 代码中落地。
+GoNetDisk 当前是一套最小可用的网盘后端，已经实现用户体系、JWT 鉴权（含用户状态回查）、单文件上传、基础单文件下载、文件哈希去重、目录创建和基础配额累加。文件列表、重命名、移动、删除、分享、预览、同步、回收站、管理后台等能力还未在 Go 代码中落地。
 
 ## 当前能力
 
 - 用户注册 / 登录
-- JWT Token 鉴权
+- JWT Token 鉴权（token 校验后回查 `user.status`，禁用用户禁止访问）
 - 获取 / 更新当前用户信息
-- 单文件上传
+- 单文件上传（MD5 去重、配额检查）
+- 单文件下载（按 `userfile_id`，支持 `Content-Type` 推断和 UTF-8 文件名）
 - 物理文件 MD5 去重
-- 基础目录创建
+- 基础目录创建（返回 `folder_id`）
 - 用户已用空间累计
 - Docker 启动 MySQL 开发环境
 
@@ -53,7 +54,7 @@ GoNetDisk/
 ├── internal/
 │   ├── controller/          # HTTP 控制器
 │   ├── dto/                 # 请求/响应 DTO
-│   ├── middleware/          # JWT 中间件
+│   ├── middleware/          # JWT 与 CORS 中间件
 │   ├── model/               # GORM 模型
 │   ├── repository/          # 数据访问层
 │   ├── router/              # 路由装配
@@ -105,7 +106,6 @@ server:
   mode: debug
 
 database:
-  type: mysql
   host: "localhost"
   port: 3306
   user: "root"
@@ -114,16 +114,20 @@ database:
   charset: "utf8mb4"
   parseTime: true
   loc: "Local"
-  max_idle_conns: 10
-  max_open_conns: 100
-  log_mode: "info"
 
 jwt:
   secret: "your-secret-key"
   expiresHours: 24
+
+storage:
+  tempDir: "./storage/temp"
+  uploadDir: "./storage/uploads"
+
+upload:
+  maxFileSizeMB: 100
 ```
 
-注意：`server.mode`、数据库连接池参数和 `log_mode` 目前在代码里还没有完全接线，配置文件和实际运行行为并不完全一致。
+配置加载采用三级策略：`CONFIG_PATH` 环境变量 → 可执行文件同级 `configs/config.yaml` → 当前工作目录 `configs/config.yaml`。存储路径会在加载后自动解析为绝对路径。
 
 ### 3. 启动服务
 
@@ -131,9 +135,9 @@ jwt:
 go run cmd/server/main.go
 ```
 
-入口通过相对路径加载 `./configs/config.yaml`，因此应在仓库根目录执行。
-
 默认监听地址：`http://localhost:9090`
+
+启动时会打印配置文件路径、存储目录、运行模式和监听地址。
 
 ### 4. 局域网访问与上传
 
@@ -161,7 +165,7 @@ curl -X POST http://192.168.1.50:9090/api/v1/file/upload \
 
 ```powershell
 $env:GOCACHE = (Join-Path $PWD '.gocache')
-go test ./...
+go build ./...
 ```
 
 ## API
@@ -182,11 +186,14 @@ go test ./...
 | 方法 | 路径 | 说明 | 认证 |
 |------|------|------|:----:|
 | POST | `/file/upload` | 上传文件 | 是 |
+| GET  | `/file/download/:userfile_id` | 下载文件 | 是 |
 
 上传接口使用 `multipart/form-data`：
 
 - `file`: 必填，上传文件
 - `parent_id`: 选填，父目录 ID，根目录传 `0`
+
+上传响应返回 `userfile_id`、`file_name`、`file_ext`、`file_size`、`parent_id`，不返回下载 URL。下载需通过 `GET /file/download/:userfile_id` 单独调用。
 
 ### 文件夹模块
 
@@ -198,6 +205,8 @@ go test ./...
 
 - `folder_name`: 必填，文件夹名
 - `parent_id`: 选填，父目录 ID，根目录传 `0`
+
+创建成功后返回新文件夹的 `folder_id`。
 
 ## 请求示例
 
@@ -228,6 +237,13 @@ curl -X POST http://localhost:9090/api/v1/file/upload \
 
 如果从局域网其他机器访问，只需要把 `localhost` 替换成服务端机器的局域网 IP。
 
+### 下载文件
+
+```bash
+curl -O -J http://localhost:9090/api/v1/file/download/<userfile_id> \
+  -H "Authorization: Bearer <your-token>"
+```
+
 ### 创建文件夹
 
 ```bash
@@ -256,22 +272,29 @@ curl -X POST http://localhost:9090/api/v1/folder/create \
 
 ## 当前可优化问题
 
-- 配置项存在但未完全生效：`server.mode`、连接池参数、`log_mode`
-- 上传返回的 `download_url` 仍是本地路径，没有下载接口
-- 用户模块错误码过于粗糙，`409` 使用过多
-- 上传输入校验不足，缺少文件名净化和 MIME 白名单
-- 上传目录和最大文件大小硬编码
-- 空间管理只有上传增量累加，没有查询和校正能力
+- 下载 `os.Open` 失败（磁盘文件缺失）仍统一返回 500，未区分 404
+- 未支持的 `storage_type` 返回 500 而非 501
+- 上传缺少文件名净化、MIME 白名单和内容级校验
+- 配额不足时错误文案返回 `空间不足：<nil>`
+- 超限错误文案仍写死"超过 100MB"，未反映实际配置值
+- `GetSpace` 查询条件错误且当前未被使用
+- 缺少文件/目录列表接口
 - 仓库没有自动化测试
 
 ## 开发路线
 
 - [x] 用户注册 / 登录
 - [x] JWT 鉴权
+- [x] 用户状态校验（`user.status` 接入登录与鉴权）
+- [x] 统一用户错误模型（400/401/403/404/409/500）
 - [x] 文件上传
 - [x] 文件哈希去重
 - [x] 文件夹创建
-- [ ] 文件下载
+- [x] 文件下载
+- [x] 配置加载收口（三级策略 + 绝对路径解析）
+- [x] 上传/下载契约定稿
+- [x] 下载响应头改进（Content-Type 推断 + UTF-8 文件名）
+- [x] AutoMigrate 错误检查
 - [ ] 文件列表 / 重命名 / 移动 / 删除
 - [ ] 文件分享
 - [ ] 文件预览
@@ -283,3 +306,7 @@ curl -X POST http://localhost:9090/api/v1/folder/create \
 ## License
 
 MIT
+
+---
+
+*最后更新：2026-04-04*

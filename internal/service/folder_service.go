@@ -87,7 +87,11 @@ func (fds *FolderService) CreateFolder(email, folderName string, parentID uint64
 	}
 
 	// 返回响应
-	return &dto.FolderResponse{FolderName: userFolder.FileName, ParentID: userFolder.ParentID}, nil
+	return &dto.FolderResponse{
+		FolderName: userFolder.FileName,
+		ParentID:   userFolder.ParentID,
+		FolderID:   userFolder.ID,
+	}, nil
 }
 
 func (fds *FolderService) VolidtateFolderName(folderName string) error {

@@ -6,7 +6,6 @@ type FileUploadResponse struct {
 	FileExt     string `json:"file_ext"`
 	FIleSize    int64  `json:"file_size"`
 	ParentID    uint64 `json:"parent_id"`
-	DownloadURL string `json:"download_url"`
 }
 
 type FileDownloadMeta struct {

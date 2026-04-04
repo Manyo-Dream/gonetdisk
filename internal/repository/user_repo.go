@@ -46,7 +46,17 @@ func (r *UserRepo) UserInfoUpdate(userID uint64, updates map[string]any) (*model
 		return nil, gorm.ErrRecordNotFound
 	}
 
-	err := r.db.Where("id = ?", userID).First(&user).Error
+	err := r.db.Model(&model.User{}).Where("id = ?", userID).First(&user).Error
+	if err != nil {
+		return nil, err
+	}
+
+	return &user, nil
+}
+
+func (r *UserRepo) GetUserByID(userID uint64) (*model.User, error) { 
+	var user model.User
+	err := r.db.Model(&model.User{}).Where("id = ?", userID).First(&user).Error
 	if err != nil {
 		return nil, err
 	}

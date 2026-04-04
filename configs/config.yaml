@@ -4,7 +4,6 @@ server:
   mode: debug
 
 database:
-  type: mysql
   host: "localhost"
   port: 3306
   user: "root"
@@ -13,10 +12,14 @@ database:
   charset: "utf8mb4"
   parseTime: true
   loc: "Local"
-  max_idle_conns: 10
-  max_open_conns: 100
-  log_mode: "info"
 
 jwt:
   secret: "123321"
   expiresHours: 24
+
+storage:
+  tempDir: "./storage/temp"
+  uploadDir: "./storage/uploads"
+
+upload:
+  maxFileSizeMB: 100

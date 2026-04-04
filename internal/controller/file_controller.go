@@ -2,8 +2,11 @@ package controller
 
 import (
 	"fmt"
+	"mime"
 	"net/http"
 	"net/url"
+	"path/filepath"
+	"strings"
 
 	"github.com/gin-gonic/gin"
 	"github.com/manyodream/gonetdisk/internal/dto"
@@ -81,7 +84,34 @@ func (c *FileController) DownloadFile(ctx *gin.Context) {
 	}
 	defer file.Close()
 
-	encodedFilename := url.PathEscape(filemata.FileName)
+	contentType := mime.TypeByExtension(filepath.Ext(filemata.FileName))
+	if contentType == "" {
+		contentType = "application/octet-stream"
+	}
+
+	ctx.Header("X-Content-Type-Options", "nosniff")
+	encodedFilename := c.buildContentDisposition(filemata.FileName)
 	ctx.Header("Content-Disposition", fmt.Sprintf("attachment; filename=%s", encodedFilename))
-	ctx.DataFromReader(http.StatusOK, filemata.FileSize, "application/octet-stream", file, nil)
+	ctx.DataFromReader(http.StatusOK, filemata.FileSize, contentType, file, nil)
+}
+
+func (c *FileController) buildContentDisposition(filename string) string {
+	// ASCII 回退：过滤非 ASCII 字符
+	asciiName := strings.Map(func(r rune) rune {
+		if r < 128 && r != '"' && r != '\\' && r != '\r' && r != '\n' {
+			return r
+		}
+		return '_'
+	}, filename)
+
+	if asciiName == filename {
+		return fmt.Sprintf("attachment; filename=\"%s\"", asciiName)
+	}
+
+	// 同时提供两种格式
+	encoded := url.QueryEscape(filename)
+
+	// filename*=UTF-8''<percent-encoded>
+	return fmt.Sprintf("attachment; filename=\"%s\"; filename*=UTF-8''%s",
+		asciiName, encoded)
 }

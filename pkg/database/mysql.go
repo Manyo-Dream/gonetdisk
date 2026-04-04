@@ -18,12 +18,12 @@ func InitDB(dsn string) (*gorm.DB, error) {
 		Logger: logger.Default.LogMode(logger.Info),
 	})
 	if err != nil {
-		return nil, fmt.Errorf("connect mysql failed: %w", err)
+		return nil, fmt.Errorf("连接数据库失败: %w", err)
 	}
 
-	db.AutoMigrate(&model.User{})
-	db.AutoMigrate(&model.PhysicalFile{})
-	db.AutoMigrate(&model.UserFile{})
+	if err := db.AutoMigrate(&model.User{}, &model.PhysicalFile{}, &model.UserFile{}); err != nil {
+		return nil, fmt.Errorf("自动迁移操作失败: %w", err)
+	}
 
 	return db, nil
 }

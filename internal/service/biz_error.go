@@ -10,6 +10,8 @@ var (
 	ErrNotFound   = errors.New("未找到")
 	ErrConflict   = errors.New("冲突")
 	ErrInternal   = errors.New("内部错误")
+	ErrUnauthorized  = errors.New("未授权")
+	ErrForbidden     = errors.New("禁止访问")
 )
 
 func BadRequest(msg string) error {
@@ -26,4 +28,12 @@ func Conflict(msg string) error {
 
 func Internal(msg string) error {
 	return fmt.Errorf("%w: %s", ErrInternal, msg)
+}
+
+func Unauthorized(msg string) error {
+	return fmt.Errorf("%w: %s", ErrUnauthorized, msg)
+}
+
+func Forbidden(msg string) error {
+	return fmt.Errorf("%w: %s", ErrForbidden, msg)
 }

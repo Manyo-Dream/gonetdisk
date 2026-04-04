@@ -29,7 +29,7 @@ func (c *UserController) Register(ctx *gin.Context) {
 
 	resp, err := c.UserService.Register(req.Email, req.Username, req.Password)
 	if err != nil {
-		ctx.JSON(http.StatusConflict, gin.H{
+		ctx.JSON(statusFromErr(err), gin.H{
 			"error": "用户注册失败:" + err.Error(),
 		})
 		return
@@ -50,7 +50,7 @@ func (c *UserController) Login(ctx *gin.Context) {
 
 	resp, err := c.UserService.Login(req.Email, req.Password)
 	if err != nil {
-		ctx.JSON(http.StatusConflict, gin.H{
+		ctx.JSON(statusFromErr(err), gin.H{
 			"error": "用户登录失败:" + err.Error(),
 		})
 		return
@@ -70,7 +70,7 @@ func (c *UserController) GetUserInfo(ctx *gin.Context) {
 
 	resp, err := c.UserService.GetUserInfo(email)
 	if err != nil {
-		ctx.JSON(http.StatusConflict, gin.H{
+		ctx.JSON(statusFromErr(err), gin.H{
 			"error": "用户信息获取失败:" + err.Error(),
 		})
 		return
@@ -82,7 +82,9 @@ func (c *UserController) GetUserInfo(ctx *gin.Context) {
 func (c *UserController) UpdateUserInfo(ctx *gin.Context) {
 	userID, ok := middleware.GetUserID(ctx)
 	if !ok {
-		ctx.JSON(http.StatusUnauthorized, gin.H{"error": "未认证用户"})
+		ctx.JSON(http.StatusUnauthorized, gin.H{
+			"error": "未认证用户",
+		})
 		return
 	}
 
@@ -97,7 +99,7 @@ func (c *UserController) UpdateUserInfo(ctx *gin.Context) {
 
 	resp, err := c.UserService.UpdateUserInfo(userID, req.Username, req.AvatarURL)
 	if err != nil {
-		ctx.JSON(http.StatusConflict, gin.H{
+		ctx.JSON(statusFromErr(err), gin.H{
 			"error": "用户信息更新失败:" + err.Error(),
 		})
 		return
