@@ -8,6 +8,7 @@ import (
 	"mime/multipart"
 	"os"
 	"path/filepath"
+	"regexp"
 	"strconv"
 	"strings"
 	"time"
@@ -24,17 +25,15 @@ type FileService struct {
 	userRepo  *repository.UserRepo
 	fileRepo  *repository.FileRepo
 	jwtManger *util.JWTManager
-	storage   *configs.StorageConfig
-	upload    *configs.UploadConfig
+	config    *configs.Config
 }
 
-func NewFileService(userRepo *repository.UserRepo, fileRepo *repository.FileRepo, jwtManger *util.JWTManager, storage *configs.StorageConfig, upload *configs.UploadConfig) *FileService {
+func NewFileService(userRepo *repository.UserRepo, fileRepo *repository.FileRepo, jwtManger *util.JWTManager, config *configs.Config) *FileService {
 	return &FileService{
 		userRepo:  userRepo,
 		fileRepo:  fileRepo,
 		jwtManger: jwtManger,
-		storage:   storage,
-		upload:    upload,
+		config:    config,
 	}
 }
 
@@ -48,7 +47,11 @@ func (s *FileService) UploadPhyFileAndBindFile(email string, parentID uint64, fi
 	// 2.获取用户信息
 	userInfo, err := s.userRepo.GetByEmail(email)
 	if err != nil {
-		return nil, NotFound(fmt.Sprintf("获取用户信息失败: %s", err))
+		if errors.Is(err, gorm.ErrRecordNotFound) {
+			return nil, NotFound(fmt.Sprintf("用户不存在: %s", email))
+		}
+		// 数据库连接错误、查询错误等应该返回500
+		return nil, Internal(fmt.Sprintf("查询用户信息失败: %s", err))
 	}
 
 	if userInfo.Total_Space > 0 && userInfo.Used_Space+uint64(validResult.FileSize) > userInfo.Total_Space {
@@ -68,15 +71,15 @@ func (s *FileService) UploadPhyFileAndBindFile(email string, parentID uint64, fi
 	if err != nil {
 		return nil, Internal(fmt.Sprintf("保存到临时文件夹失败: %s", err))
 	}
-	// defer func() {
-	// 	if _, err := os.Stat(tempPath); err == nil {
-	// 		os.Remove(tempPath)
-	// 	} else if errors.Is(err, os.ErrNotExist) {
-	// 		fmt.Printf("临时文件已不存在: %s", tempPath)
-	// 	} else {
-	// 		fmt.Printf("检查临时文件失败: %v", err)
-	// 	}
-	// }()
+	defer func() {
+		if _, err := os.Stat(tempPath); err == nil {
+			os.Remove(tempPath)
+		} else if errors.Is(err, os.ErrNotExist) {
+			fmt.Printf("临时文件已清除: %s", tempPath)
+		} else {
+			fmt.Printf("检查临时文件状态失败: %v", err)
+		}
+	}()
 
 	defer func() {
 		if _, err := os.Stat(tempPath); err == nil {
@@ -123,6 +126,7 @@ func (s *FileService) UploadPhyFileAndBindFile(email string, parentID uint64, fi
 			ParentID:   parentID,
 			FileName:   respFileName,
 			FileExt:    strings.ToLower(filepath.Ext(respFileName)),
+			FileSize:   hashResult.FileSize,
 			IsDir:      false,
 		}
 
@@ -210,6 +214,7 @@ func (s *FileService) UploadPhyFileAndBindFile(email string, parentID uint64, fi
 			ParentID:   parentID,
 			FileName:   respFileName,
 			FileExt:    strings.ToLower(filepath.Ext(respFileName)),
+			FileSize:   validResult.FileSize,
 			IsDir:      false,
 		}
 
@@ -263,7 +268,7 @@ func (s *FileService) DownloadUserFile(userID, userFileID uint64) (*dto.FileDown
 	}
 
 	if phyFile.StorageType != "local" {
-		return nil, nil, Internal("不支持的存储类型: " + phyFile.StorageType)
+		return nil, nil, NotImplemented("不支持的存储类型: " + phyFile.StorageType)
 	}
 
 	if phyFile.FilePath == "" {
@@ -272,7 +277,10 @@ func (s *FileService) DownloadUserFile(userID, userFileID uint64) (*dto.FileDown
 
 	file, err := os.Open(phyFile.FilePath)
 	if err != nil {
-		return nil, nil, Internal(fmt.Sprintf("文件获取失败: %s", err))
+		if errors.Is(err, os.ErrNotExist) {
+			return nil, nil, NotFound("文件在磁盘上不存在")
+		}
+		return nil, nil, Internal(fmt.Sprintf("读取文件失败: %s", err))
 	}
 
 	return &dto.FileDownloadMeta{
@@ -281,6 +289,51 @@ func (s *FileService) DownloadUserFile(userID, userFileID uint64) (*dto.FileDown
 		FileExt:     userFile.FileExt,
 		FileSize:    phyFile.FileSize,
 	}, file, nil
+}
+
+func (s *FileService) GetUserFileList(userID, parentID uint64, page, pageSize int, sortBy, orderBy string) (*dto.FileListResponse, error) {
+	// 参数默认值处理
+	switch {
+	case page < 1:
+		page = 1
+	}
+
+	switch {
+	case pageSize < 1:
+		pageSize = 5
+	case pageSize > 100:
+		pageSize = 100
+	}
+
+	switch sortBy {
+	case "":
+		sortBy = "updated_at"
+	case "file_name", "file_size", "created_at", "updated_at":
+	default:
+		sortBy = "updated_at"
+	}
+
+	switch orderBy {
+	case "":
+		orderBy = "desc"
+	case "asc", "desc":
+	default:
+		orderBy = "desc"
+	}
+
+	// 调用 Repository
+	userFileList, total, err := s.fileRepo.GetUserFileList(userID, parentID, page, pageSize, sortBy, orderBy)
+	if err != nil {
+		return nil, Internal(fmt.Sprintf("获取文件列表失败: %s", err))
+	}
+
+	// 返回响应
+	return &dto.FileListResponse{
+		List:     userFileList,
+		Total:    total,
+		Page:     page,
+		PageSize: pageSize,
+	}, nil
 }
 
 func (s *FileService) validFile(fileHeader *multipart.FileHeader) (*model.PhysicalFile, error) {
@@ -292,13 +345,14 @@ func (s *FileService) validFile(fileHeader *multipart.FileHeader) (*model.Physic
 	name := strings.TrimSuffix(fileName, ext)
 
 	// 2. 验证文件名与后缀
-	if name == "" || len(ext) <= 1 {
-		return nil, errors.New("文件名或扩展名违规")
+	err := s.VolidtateFileName(name)
+	if err != nil {
+		return nil, err
 	}
 
 	// 3. 验证文件大小
 	// 100MB = 100 * 1024 * 1024
-	maxFileSize := s.upload.MaxFileSizeMB * 1024 * 1024
+	maxFileSize := s.config.Upload.MaxFileSizeMB * 1024 * 1024
 	if fileSize > maxFileSize {
 		return nil, errors.New("上传文件过大(超过 100MB)")
 	} else if fileSize <= 0 {
@@ -312,8 +366,30 @@ func (s *FileService) validFile(fileHeader *multipart.FileHeader) (*model.Physic
 	}, nil
 }
 
+func (s *FileService) VolidtateFileName(fileName string) error {
+	if strings.TrimSpace(fileName) == "" {
+		return errors.New("文件名不能为空")
+	}
+
+	if len(fileName) > 255 {
+		return errors.New("文件名过长")
+	}
+
+	illegal := `[<>:"/\\|?*]`
+	matched, _ := regexp.MatchString(illegal, fileName)
+	if matched {
+		return errors.New("文件名包含非法字符")
+	}
+
+	if fileName == "." || fileName == ".." {
+		return errors.New("文件夹名不能为 '.' 或 '..'")
+	}
+
+	return nil
+}
+
 func (s *FileService) saveToTemp(fileHeader *multipart.FileHeader) (string, error) {
-	baseDir := s.storage.TempDir
+	baseDir := s.config.Storage.TempDir
 
 	subDir := time.Now().Format("2006/01/02")
 	finalDir := filepath.Join(baseDir, subDir)
@@ -345,7 +421,7 @@ func (s *FileService) saveToTemp(fileHeader *multipart.FileHeader) (string, erro
 }
 
 func (s *FileService) promoteToLocal(tempPath string, originalName string) (string, error) {
-	baseDir := s.storage.UploadDir
+	baseDir := s.config.Storage.UploadDir
 
 	subDir := time.Now().Format("2006/01/02")
 	finalDir := filepath.Join(baseDir, subDir)

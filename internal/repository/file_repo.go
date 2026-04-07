@@ -1,6 +1,8 @@
 package repository
 
 import (
+	"fmt"
+
 	"github.com/manyodream/gonetdisk/internal/model"
 	"gorm.io/gorm"
 )
@@ -15,6 +17,34 @@ func NewFileRepo(DB *gorm.DB) *FileRepo {
 
 func (r *FileRepo) CreatePhyFile(DB *gorm.DB, phyfile *model.PhysicalFile) error {
 	return DB.Create(phyfile).Error
+}
+
+func (r *FileRepo) GetPhyFileByFileName(filename string) (*model.PhysicalFile, error) {
+	var phyfile model.PhysicalFile
+
+	err := r.DB.Model(&model.PhysicalFile{}).Where("file_name = ?", filename).First(&phyfile).Error
+	if err != nil {
+		return nil, err
+	}
+
+	return &phyfile, nil
+}
+
+func (r *FileRepo) GetPhyFileByID(id uint64) (*model.PhysicalFile, error) {
+	var phyFile model.PhysicalFile
+	err := r.DB.Where("id = ?", id).First(&phyFile).Error
+	return &phyFile, err
+}
+
+func (r *FileRepo) HashDeduplication(DB *gorm.DB, fileHash string) (*model.PhysicalFile, error) {
+	var phyfile model.PhysicalFile
+
+	err := DB.Model(&model.PhysicalFile{}).Where("file_hash = ?", fileHash).First(&phyfile).Error
+	if err != nil {
+		return nil, err
+	}
+
+	return &phyfile, err
 }
 
 func (r *FileRepo) CreateUserFile(DB *gorm.DB, userfile *model.UserFile) error {
@@ -74,31 +104,6 @@ func (r *FileRepo) GetParentIDyFolderName(userID uint64, folderName string) (*mo
 	return &userfile, nil
 }
 
-func (r *FileRepo) UpdateUserFilePath(id uint64, pathStack string) error {
-	return r.DB.Model(&model.UserFile{}).Where("id = ?", id).Update("path_stack", pathStack).Error
-}
-
-func (r *FileRepo) GetPhyFileByFileName(filename string) (*model.PhysicalFile, error) {
-	var phyfile model.PhysicalFile
-
-	err := r.DB.Model(&model.PhysicalFile{}).Where("file_name = ?", filename).First(&phyfile).Error
-	if err != nil {
-		return nil, err
-	}
-
-	return &phyfile, nil
-}
-
-func (r *FileRepo) GetPhyFileByID(id uint64) (*model.PhysicalFile, error) {
-	var phyFile model.PhysicalFile
-	err := r.DB.Where("id = ?", id).First(&phyFile).Error
-	return &phyFile, err
-}
-
-func (r *FileRepo) UpdatePhyFilePath(id uint64, filePath string) error {
-	return r.DB.Model(&model.PhysicalFile{}).Where("id = ?", id).Update("file_path", filePath).Error
-}
-
 func (r *FileRepo) GetUserFileByFileName(userID, parentID uint64, filename string) (*model.UserFile, error) {
 	var userfile model.UserFile
 
@@ -112,15 +117,41 @@ func (r *FileRepo) GetUserFileByFileName(userID, parentID uint64, filename strin
 	return &userfile, nil
 }
 
-func (r *FileRepo) HashDeduplication(DB *gorm.DB, fileHash string) (*model.PhysicalFile, error) {
-	var phyfile model.PhysicalFile
+func (r *FileRepo) GetUserFileList(userID, parentID uint64, page, pageSize int, sortBy, orderBy string) ([]model.UserFile, int64, error) {
+	// 构建查询
+	query := r.DB.Model(&model.UserFile{}).
+		Where("user_id = ? AND parent_id = ?", userID, parentID)
 
-	err := DB.Model(&model.PhysicalFile{}).Where("file_hash = ?", fileHash).First(&phyfile).Error
-	if err != nil {
-		return nil, err
+	// 统计总数
+	var total int64
+
+	if err := query.Count(&total).Error; err != nil {
+		return nil, 0, fmt.Errorf("获取文件总数失败: %w", err)
 	}
 
-	return &phyfile, err
+	if total == 0 {
+		return []model.UserFile{}, 0, nil
+	}
+
+	// 分页查询
+	var items []model.UserFile
+
+	offset := (page - 1) * pageSize
+	orderClause := fmt.Sprintf("is_dir DESC, %s %s", sortBy, orderBy)
+
+	err := query.Order(orderClause).
+		Offset(offset).
+		Limit(pageSize).
+		Find(&items).Error
+	if err != nil {
+		return nil, 0, fmt.Errorf("构建文件列表失败: %w", err)
+	}
+
+	return items, total, nil
+}
+
+func (r *FileRepo) UpdatePhyFilePath(id uint64, filePath string) error {
+	return r.DB.Model(&model.PhysicalFile{}).Where("id = ?", id).Update("file_path", filePath).Error
 }
 
 func (r *FileRepo) GetSpace(userid string) (uint64, error) {
@@ -179,4 +210,8 @@ func (r *FileRepo) GetFileByDownloadReq(userID, userFileID uint64) (*model.UserF
 	}
 
 	return &userFile, userFile.PhysicalFile, nil
+}
+
+func (r *FileRepo) UpdateUserFilePath(id uint64, pathStack string) error {
+	return r.DB.Model(&model.UserFile{}).Where("id = ?", id).Update("path_stack", pathStack).Error
 }

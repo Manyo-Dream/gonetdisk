@@ -20,7 +20,7 @@ func SetupRouter(db *gorm.DB, jwtManager *util.JWTManager, config *configs.Confi
 	userController := controller.NewUserController(userService)
 
 	fileRepo := repository.NewFileRepo(db)
-	fileService := service.NewFileService(userRepo, fileRepo, jwtManager, &config.Storage, &config.Upload)
+	fileService := service.NewFileService(userRepo, fileRepo, jwtManager, config)
 	fileController := controller.NewFileController(fileService)
 
 	folderService := service.NewFolderService(userRepo, fileRepo, jwtManager)
@@ -44,6 +44,7 @@ func SetupRouter(db *gorm.DB, jwtManager *util.JWTManager, config *configs.Confi
 		{
 			fileHandler.POST("/upload", fileController.UploadFile)
 			fileHandler.GET("/download/:userfile_id", fileController.DownloadFile)
+			fileHandler.GET("/list", fileController.ReturnFileList)
 		}
 
 		folderHandler := v1.Group("/folder")

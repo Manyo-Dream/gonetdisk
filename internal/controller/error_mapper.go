@@ -19,6 +19,8 @@ func statusFromErr(err error) int {
 		return http.StatusUnauthorized
 	case errors.Is(err, service.ErrForbidden):
 		return http.StatusForbidden
+	case errors.Is(err, service.ErrNotImplemented):
+		return http.StatusNotImplemented
 	default:
 		return http.StatusInternalServerError
 	}

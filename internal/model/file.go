@@ -29,6 +29,7 @@ type UserFile struct {
 	ParentID     uint64         `json:"parent_id"`
 	FileName     string         `json:"file_name"`
 	FileExt      string         `json:"file_ext"`
+	FileSize     int64          `json:"file_size"`
 	PathStack    string         `json:"path_stack"`
 	IsDir        bool           `json:"is_dir"`
 	CreatedAt    time.Time      `json:"created_at"`

@@ -6,7 +6,6 @@ import (
 	"net/http"
 	"net/url"
 	"path/filepath"
-	"strings"
 
 	"github.com/gin-gonic/gin"
 	"github.com/manyodream/gonetdisk/internal/dto"
@@ -89,29 +88,61 @@ func (c *FileController) DownloadFile(ctx *gin.Context) {
 		contentType = "application/octet-stream"
 	}
 
+	fileName := filemata.FileName
+	escapedName := url.PathEscape(fileName)
+	disposition := fmt.Sprintf("attachment; filename=\"%s\"; filename*=utf-8''%s", escapedName, escapedName)
+
+	ctx.Header("Content-Disposition", disposition)
 	ctx.Header("X-Content-Type-Options", "nosniff")
-	encodedFilename := c.buildContentDisposition(filemata.FileName)
-	ctx.Header("Content-Disposition", fmt.Sprintf("attachment; filename=%s", encodedFilename))
+
 	ctx.DataFromReader(http.StatusOK, filemata.FileSize, contentType, file, nil)
 }
 
-func (c *FileController) buildContentDisposition(filename string) string {
-	// ASCII 回退：过滤非 ASCII 字符
-	asciiName := strings.Map(func(r rune) rune {
-		if r < 128 && r != '"' && r != '\\' && r != '\r' && r != '\n' {
-			return r
-		}
-		return '_'
-	}, filename)
+func (c *FileController) ReturnFileList(ctx *gin.Context) {
+	var req dto.FileListRequest
 
-	if asciiName == filename {
-		return fmt.Sprintf("attachment; filename=\"%s\"", asciiName)
+	if err := ctx.ShouldBindQuery(&req); err != nil {
+		ctx.JSON(http.StatusBadRequest, gin.H{
+			"error": "请求参数错误:" + err.Error(),
+		})
+		return
 	}
 
-	// 同时提供两种格式
-	encoded := url.QueryEscape(filename)
+	userID, ok := middleware.GetUserID(ctx)
+	if !ok {
+		ctx.JSON(http.StatusUnauthorized, gin.H{
+			"error": "未认证用户",
+		})
+		return
+	}
 
-	// filename*=UTF-8''<percent-encoded>
-	return fmt.Sprintf("attachment; filename=\"%s\"; filename*=UTF-8''%s",
-		asciiName, encoded)
+	if req.Page <= 0 {
+		req.Page = 1
+	}
+	if req.PageSize <= 0 {
+		req.PageSize = 5
+	}
+
+	if req.PageSize > 100 {
+		req.PageSize = 100
+	}
+
+	resp, err := c.FileService.GetUserFileList(
+		userID,
+		req.ParentID,
+		req.Page,
+		req.PageSize,
+		req.SortBy,
+		req.OrderBy,
+	)
+	if err != nil {
+		ctx.JSON(statusFromErr(err), gin.H{"error": "获取文件列表失败:" + err.Error()})
+		return
+	}
+
+	ctx.JSON(http.StatusOK, gin.H{
+		"code": 0,
+		"msg":  "success",
+		"data": resp,
+	})
 }
