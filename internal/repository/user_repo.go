@@ -54,7 +54,7 @@ func (r *UserRepo) UserInfoUpdate(userID uint64, updates map[string]any) (*model
 	return &user, nil
 }
 
-func (r *UserRepo) GetUserByID(userID uint64) (*model.User, error) { 
+func (r *UserRepo) GetUserByID(userID uint64) (*model.User, error) {
 	var user model.User
 	err := r.db.Model(&model.User{}).Where("id = ?", userID).First(&user).Error
 	if err != nil {
@@ -62,4 +62,16 @@ func (r *UserRepo) GetUserByID(userID uint64) (*model.User, error) {
 	}
 
 	return &user, nil
+}
+
+func (r *UserRepo) IncrUserSpace(userID uint64, fileSize int64) error {
+	return r.db.Model(&model.User{}).Where("id = ?", userID).
+		UpdateColumn("used_space", gorm.Expr("COALESCE(used_space, 0) + ?", fileSize)).
+		Error
+}
+
+func (r *UserRepo) DecrUserSpace(userID uint64, fileSize int64) error {
+	return r.db.Model(&model.User{}).Where("id = ?", userID).
+		UpdateColumn("used_space", gorm.Expr("COALESCE(used_space, 0) - ?", fileSize)).
+		Error
 }

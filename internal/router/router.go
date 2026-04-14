@@ -44,6 +44,7 @@ func SetupRouter(db *gorm.DB, jwtManager *util.JWTManager, config *configs.Confi
 		{
 			fileHandler.POST("/upload", fileController.UploadFile)
 			fileHandler.GET("/download/:userfile_id", fileController.DownloadFile)
+			fileHandler.DELETE("/delete/:userfile_id", fileController.MoveFileToTrash)
 			fileHandler.GET("/list", fileController.ReturnFileList)
 		}
 
@@ -51,6 +52,15 @@ func SetupRouter(db *gorm.DB, jwtManager *util.JWTManager, config *configs.Confi
 		folderHandler.Use(middleware.AuthMiddleware(jwtManager, userRepo))
 		{
 			folderHandler.POST("/create", folderController.CreateFolder)
+			folderHandler.DELETE("/delete/:userfolder_id", folderController.MoveFolderToTrash)
+		}
+
+		trashHandler := v1.Group("/trash")
+		trashHandler.Use(middleware.AuthMiddleware(jwtManager, userRepo))
+		{
+			trashHandler.GET("/list", fileController.ReturnTrashList)
+			trashHandler.POST("/file/:userfile_id", fileController.RestoreFile)
+			trashHandler.POST("/folder/:userfolder_id", folderController.RestoreFolder)
 		}
 	}
 	return r

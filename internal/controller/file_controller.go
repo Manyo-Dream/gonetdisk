@@ -6,6 +6,7 @@ import (
 	"net/http"
 	"net/url"
 	"path/filepath"
+	"strconv"
 
 	"github.com/gin-gonic/gin"
 	"github.com/manyodream/gonetdisk/internal/dto"
@@ -136,7 +137,141 @@ func (c *FileController) ReturnFileList(ctx *gin.Context) {
 		req.OrderBy,
 	)
 	if err != nil {
-		ctx.JSON(statusFromErr(err), gin.H{"error": "获取文件列表失败:" + err.Error()})
+		ctx.JSON(statusFromErr(err), gin.H{
+			"error": "获取文件列表失败:" + err.Error(),
+		})
+		return
+	}
+
+	ctx.JSON(http.StatusOK, gin.H{
+		"code": 0,
+		"msg":  "success",
+		"data": resp,
+	})
+}
+
+func (c *FileController) MoveFileToTrash(ctx *gin.Context) {
+	// 获取用户ID
+	userID, ok := middleware.GetUserID(ctx)
+	if !ok {
+		ctx.JSON(http.StatusUnauthorized, gin.H{
+			"error": "未认证用户",
+		})
+		return
+	}
+
+	// 获取用户文件ID
+	userFileIDStr := ctx.Param("userfile_id")
+	if userFileIDStr == "" {
+		ctx.JSON(http.StatusBadRequest, gin.H{
+			"error": "用户文件ID为空",
+		})
+		return
+	}
+
+	userFileID, err := strconv.Atoi(userFileIDStr)
+	if err != nil {
+		ctx.JSON(http.StatusBadRequest, gin.H{
+			"error": "请求参数错误" + err.Error(),
+		})
+		return
+	}
+
+	resp, err := c.FileService.MoveFileToTrash(userID, uint64(userFileID))
+	if err != nil {
+		ctx.JSON(statusFromErr(err), gin.H{
+			"error": "移动到回收站失败:" + err.Error(),
+		})
+		return
+	}
+
+	ctx.JSON(http.StatusOK, gin.H{
+		"code": 0,
+		"msg":  "success",
+		"data": resp,
+	})
+}
+
+func (c *FileController) RestoreFile(ctx *gin.Context) {
+	// 获取用户ID
+	userID, ok := middleware.GetUserID(ctx)
+	if !ok {
+		ctx.JSON(http.StatusUnauthorized, gin.H{
+			"error": "未认证用户",
+		})
+		return
+	}
+
+	// 获取用户文件ID
+	userFileIDStr := ctx.Param("userfile_id")
+	if userFileIDStr == "" {
+		ctx.JSON(http.StatusBadRequest, gin.H{
+			"error": "用户文件ID为空",
+		})
+		return
+	}
+
+	userFileID, err := strconv.Atoi(userFileIDStr)
+	if err != nil {
+		ctx.JSON(http.StatusBadRequest, gin.H{
+			"error": "请求参数错误" + err.Error(),
+		})
+		return
+	}
+
+	resp, err := c.FileService.RestoreFile(userID, uint64(userFileID))
+	if err != nil {
+		ctx.JSON(statusFromErr(err), gin.H{
+			"error": "移动到回收站失败:" + err.Error(),
+		})
+		return
+	}
+
+	ctx.JSON(http.StatusOK, gin.H{
+		"code": 0,
+		"msg":  "success",
+		"data": resp,
+	})
+}
+
+func (c *FileController) ReturnTrashList(ctx *gin.Context) {
+	var req dto.TrashListRequest
+
+	if err := ctx.ShouldBindQuery(&req); err != nil {
+		ctx.JSON(http.StatusBadRequest, gin.H{
+			"error": "请求参数错误:" + err.Error(),
+		})
+		return
+	}
+
+	userID, ok := middleware.GetUserID(ctx)
+	if !ok {
+		ctx.JSON(http.StatusUnauthorized, gin.H{
+			"error": "未认证用户",
+		})
+		return
+	}
+
+	if req.Page <= 0 {
+		req.Page = 1
+	}
+	if req.PageSize <= 0 {
+		req.PageSize = 5
+	}
+
+	if req.PageSize > 100 {
+		req.PageSize = 100
+	}
+
+	resp, err := c.FileService.GetTrashList(
+		userID,
+		req.Page,
+		req.PageSize,
+	)
+	if err != nil {
+		ctx.JSON(statusFromErr(err), gin.H{
+			"error": "获取文件列表失败:" + err.Error(),
+		})
 		return
 	}
 
